@@ -70,19 +70,10 @@ def build_parser():
     parser.add_argument("--lambda_coupling_l1", type=float, default=0.0005)
     parser.add_argument("--lambda_align", type=float, default=0.05)
     parser.add_argument("--lambda_shuffle", type=float, default=0.05)
-    parser.add_argument("--lambda_growth", type=float, default=0.0)
-    parser.add_argument("--lambda_extreme", type=float, default=0.0)
-    parser.add_argument("--extreme_threshold", type=float, default=10.0)
     parser.add_argument("--shuffle_margin", type=float, default=0.02)
-    parser.add_argument("--frame_minutes", type=float, default=6.0)
-    parser.add_argument("--lead_focus_start_hour", type=float, default=1.0)
-    parser.add_argument("--lead_focus_end_hour", type=float, default=3.0)
-    parser.add_argument("--lead_focus_factor", type=float, default=0.0)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
-    parser.add_argument("--radar_checkpoint", type=str, default="")
-    parser.add_argument("--freeze_radar_epochs", type=int, default=0)
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     return parser
@@ -139,25 +130,6 @@ def normalize_positive(x):
     return x / denom
 
 
-def lead_weights(seq, args):
-    steps = seq.shape[1]
-    hours = (torch.arange(steps, device=seq.device, dtype=seq.dtype) + 1.0) * float(args.frame_minutes) / 60.0
-    focus = ((hours >= args.lead_focus_start_hour) & (hours <= args.lead_focus_end_hour)).to(seq.dtype)
-    weights = 1.0 + float(args.lead_focus_factor) * focus
-    weights = weights / weights.mean().clamp_min(1e-6)
-    return weights.view(1, steps, 1, 1)
-
-
-def focused_weighted_l1(pred, target, args):
-    weight = torch.ones_like(target)
-    weight = weight + 2.0 * (target >= 16.0).float()
-    weight = weight + 4.0 * (target >= 32.0).float()
-    weight = weight + 8.0 * (target >= 64.0).float()
-    weight = weight * (1.0 + target / max(float(args.intensity_scale), 1.0))
-    weight = weight * lead_weights(target, args)
-    return (weight * (pred - target).abs()).mean()
-
-
 def pwv_physical_signal(pwv, input_length):
     history = pwv[:, :input_length]
     last = history[:, -1]
@@ -175,23 +147,6 @@ def coupling_alignment_loss(coupling, target, frames, pwv, args):
     pwv_signal = pwv_physical_signal(pwv, args.input_length).unsqueeze(1)
     align_weight = rain_growth * pwv_signal
     return ((1.0 - coupling[:, :, 0]) * align_weight).sum() / align_weight.sum().clamp_min(1e-6)
-
-
-def growth_residual_loss(pred, target, frames, args):
-    last_radar = frames[:, args.input_length - 1, :, :, 0].unsqueeze(1)
-    pred_growth = F.relu(pred - last_radar)
-    target_growth = F.relu(target - last_radar)
-    growth_weight = 1.0 + 4.0 * normalize_positive(target_growth)
-    growth_weight = growth_weight * lead_weights(target, args)
-    return (growth_weight * (pred_growth - target_growth).abs()).mean()
-
-
-def extreme_tail_loss(pred, target, args):
-    threshold = float(args.extreme_threshold)
-    pred_tail = F.relu(pred - threshold)
-    target_tail = F.relu(target - threshold)
-    tail_weight = (1.0 + normalize_positive(target_tail)) * lead_weights(target, args)
-    return (tail_weight * (pred_tail - target_tail).abs()).mean()
 
 
 def make_shuffled_pwv(pwv):
@@ -219,8 +174,8 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     advected = aux["advected"]
     coupling = aux["coupling"]
 
-    forecast_loss = focused_weighted_l1(pred, target, args)
-    evolution_loss = focused_weighted_l1(evo, target, args)
+    forecast_loss = weighted_l1(pred, target, args.intensity_scale)
+    evolution_loss = weighted_l1(evo, target, args.intensity_scale)
     advected_loss = weighted_l1(advected, target, args.intensity_scale)
     motion_loss = motion_regularization(aux["motion"], target, args.intensity_scale)
     pool_loss = pooled_l1(pred, target)
@@ -230,8 +185,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     coupling_l1 = coupling.mean()
     align_loss = coupling_alignment_loss(coupling, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
-    growth_loss = growth_residual_loss(pred, target, frames, args)
-    extreme_loss = extreme_tail_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -244,8 +197,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         + args.lambda_coupling_l1 * coupling_l1
         + args.lambda_align * align_loss
         + args.lambda_shuffle * shuffle_loss
-        + args.lambda_growth * growth_loss
-        + args.lambda_extreme * extreme_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -259,33 +210,8 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "c_mean": coupling_l1.detach(),
         "c_align": align_loss.detach(),
         "pwv_shuffle": shuffle_loss.detach(),
-        "growth": growth_loss.detach(),
-        "extreme": extreme_loss.detach(),
     }
     return total, parts
-
-
-def set_radar_frozen(generator, frozen):
-    modules = [generator.radar_evo_net, generator.gen_enc, generator.gen_dec, generator.proj]
-    for module in modules:
-        for param in module.parameters():
-            param.requires_grad_(not frozen)
-
-
-def load_radar_checkpoint(generator, path, device):
-    checkpoint = torch.load(path, map_location=device)
-    state = checkpoint["model"] if isinstance(checkpoint, dict) and "model" in checkpoint else checkpoint
-    mapped = {}
-    for key, value in state.items():
-        if key.startswith("evo_net."):
-            mapped["radar_evo_net." + key[len("evo_net."):]] = value
-        elif key.startswith(("gen_enc.", "gen_dec.", "proj.")):
-            mapped[key] = value
-    current = generator.state_dict()
-    compatible = {k: v for k, v in mapped.items() if k in current and current[k].shape == v.shape}
-    current.update(compatible)
-    generator.load_state_dict(current)
-    print("loaded {} compatible radar weights from {}".format(len(compatible), path), flush=True)
 
 
 def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, scaler_d, args):
@@ -398,11 +324,6 @@ def main():
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
     generator = PWVCoupledNetV2(args).to(args.device)
-    if args.radar_checkpoint:
-        if Path(args.radar_checkpoint).exists():
-            load_radar_checkpoint(generator, args.radar_checkpoint, args.device)
-        else:
-            print("radar checkpoint not found, training without radar init: {}".format(args.radar_checkpoint), flush=True)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
     opt_g = torch.optim.Adam((p for p in generator.parameters() if p.requires_grad), lr=args.lr_g, betas=(args.beta1, args.beta2))
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))
@@ -421,7 +342,6 @@ def main():
         best_val = float(checkpoint.get("val_loss", best_val))
 
     for epoch in range(start_epoch, args.epochs + 1):
-        set_radar_frozen(generator, epoch <= args.freeze_radar_epochs)
         metrics = train_one_epoch(generator, discriminator, train_loader, opt_g, opt_d, scaler_g, scaler_d, args)
         val_loss, val_c_mean, val_c_std, val_c_align = validate(generator, val_loader, args)
         metrics["val_c_mean"] = val_c_mean

@@ -25,14 +25,6 @@ EXPERIMENTS = {
         "metrics": ROOT / "results" / "quick_3h_pwv_v2" / "metrics.json",
         "sample": ROOT / "results" / "quick_3h_pwv_v2" / "sample_0000",
     },
-    "PWV-coupled V2 Focus": {
-        "metrics": ROOT / "results" / "quick_3h_pwv_v2_focus" / "metrics.json",
-        "sample": ROOT / "results" / "quick_3h_pwv_v2_focus" / "sample_0000",
-    },
-    "PWV-coupled V2 Tuned": {
-        "metrics": ROOT / "results" / "quick_3h_pwv_v2_tuned" / "metrics.json",
-        "sample": ROOT / "results" / "quick_3h_pwv_v2_tuned" / "sample_0000",
-    },
 }
 
 
@@ -186,16 +178,6 @@ def save_sample_grid():
     if pwv_v2.exists():
         rows.insert(4, ("PWV-coupled V2", lambda i: open_rgb(pwv_v2 / f"pd_{i:02d}.png")))
         rows.insert(6, ("Coupling C V2", lambda i: colorize_gray(pwv_v2 / f"c_{i:02d}.png", cmap="magma", stretch=False)))
-    pwv_v2_focus = EXPERIMENTS["PWV-coupled V2 Focus"]["sample"]
-    if pwv_v2_focus.exists():
-        insert_at = 5 if pwv_v2.exists() else 4
-        rows.insert(insert_at, ("PWV V2 Focus", lambda i: open_rgb(pwv_v2_focus / f"pd_{i:02d}.png")))
-        rows.insert(insert_at + 3, ("C V2 Focus", lambda i: colorize_gray(pwv_v2_focus / f"c_{i:02d}.png", cmap="magma", stretch=False)))
-    pwv_v2_tuned = EXPERIMENTS["PWV-coupled V2 Tuned"]["sample"]
-    if pwv_v2_tuned.exists():
-        insert_at = 6 if pwv_v2_focus.exists() else (5 if pwv_v2.exists() else 4)
-        rows.insert(insert_at, ("PWV V2 Tuned", lambda i: open_rgb(pwv_v2_tuned / f"pd_{i:02d}.png")))
-        rows.insert(insert_at + 4, ("C V2 Tuned", lambda i: colorize_gray(pwv_v2_tuned / f"c_{i:02d}.png", cmap="magma", stretch=False)))
     if (pwv / "pwv_00.png").exists():
         rows.append(("PWV input", lambda i: colorize_gray(pwv / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
@@ -246,20 +228,6 @@ def save_summary(metrics):
         summary["overall"]["pwv_coupled_v2_coupling_std"] = metrics["PWV-coupled V2"].get("coupling_std")
         summary["two_to_three_hour"]["pwv_coupled_v2"] = v2_h
         summary["two_to_three_hour"]["pwv_v2_mae_gap_vs_persistence"] = v2_h["mae"] - pers_h["mae"]
-    if "PWV-coupled V2 Focus" in metrics:
-        v2_focus_h = metrics["PWV-coupled V2 Focus"]["horizon_metrics"]["model"]["2h-3h"]
-        summary["overall"]["pwv_coupled_v2_focus"] = metrics["PWV-coupled V2 Focus"]["model"]
-        summary["overall"]["pwv_coupled_v2_focus_coupling_mean"] = metrics["PWV-coupled V2 Focus"].get("coupling_mean")
-        summary["overall"]["pwv_coupled_v2_focus_coupling_std"] = metrics["PWV-coupled V2 Focus"].get("coupling_std")
-        summary["two_to_three_hour"]["pwv_coupled_v2_focus"] = v2_focus_h
-        summary["two_to_three_hour"]["pwv_v2_focus_mae_gap_vs_persistence"] = v2_focus_h["mae"] - pers_h["mae"]
-    if "PWV-coupled V2 Tuned" in metrics:
-        v2_tuned_h = metrics["PWV-coupled V2 Tuned"]["horizon_metrics"]["model"]["2h-3h"]
-        summary["overall"]["pwv_coupled_v2_tuned"] = metrics["PWV-coupled V2 Tuned"]["model"]
-        summary["overall"]["pwv_coupled_v2_tuned_coupling_mean"] = metrics["PWV-coupled V2 Tuned"].get("coupling_mean")
-        summary["overall"]["pwv_coupled_v2_tuned_coupling_std"] = metrics["PWV-coupled V2 Tuned"].get("coupling_std")
-        summary["two_to_three_hour"]["pwv_coupled_v2_tuned"] = v2_tuned_h
-        summary["two_to_three_hour"]["pwv_v2_tuned_mae_gap_vs_persistence"] = v2_tuned_h["mae"] - pers_h["mae"]
     with open(OUT / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 

@@ -139,20 +139,6 @@ bash ./quick_train_pwv_v2_3h.sh
 bash ./quick_test_pwv_v2_3h.sh
 ```
 
-The focused V2 variant is mainly an ablation for testing strong physical constraints. It initializes from the 3-hour Radar-only checkpoint if available, freezes the radar backbone for the first epoch, and emphasizes the `1-3h` range, precipitation growth, and high-intensity tails:
-
-```bash
-bash ./quick_train_pwv_v2_focus_3h.sh
-bash ./quick_test_pwv_v2_focus_3h.sh
-```
-
-If the focused variant becomes too conservative, use the tuned V2 branch. It keeps the V2 architecture, avoids radar freezing, disables the extreme-tail loss, and applies only light PWV alignment and growth guidance:
-
-```bash
-bash ./quick_train_pwv_v2_tuned_3h.sh
-bash ./quick_test_pwv_v2_tuned_3h.sh
-```
-
 Outputs:
 
 ```text
@@ -160,13 +146,41 @@ checkpoints/quick_3h_pwv_v2/
 checkpoints/quick_3h_pwv_v2.ckpt
 results/quick_3h_pwv_v2/metrics.json
 results/quick_3h_pwv_v2/sample_0000/c_*.png
-checkpoints/quick_3h_pwv_v2_focus/
-results/quick_3h_pwv_v2_focus/metrics.json
-checkpoints/quick_3h_pwv_v2_tuned/
-results/quick_3h_pwv_v2_tuned/metrics.json
 ```
 
 V2 currently trains in full precision by default for numerical stability. GPU is still used through `--device cuda:0`; mixed precision is deliberately disabled inside the V2 trainer for now.
+
+## Server Full 3-Hour Training
+
+Use these scripts for full-sample server experiments on the AutoDL 5090 machine. They compare the radar-only baseline against PWV V2 with the same train/validation/test split, 9 input frames, 30 forecast frames, stride 1, and all available windows.
+
+```bash
+cd /path/to/capsule-3935105/code
+conda activate nowcast
+DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S \
+RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/north_china_3h \
+BATCH_SIZE=8 EPOCHS=60 NUM_WORKERS=8 \
+bash ./server_run_all_3h.sh
+```
+
+Individual stages can also be run separately:
+
+```bash
+bash ./server_train_radar_3h.sh
+bash ./server_test_radar_3h.sh
+bash ./server_train_pwv_v2_3h.sh
+bash ./server_test_pwv_v2_3h.sh
+python -u make_server_3h_report.py --run_root /root/autodl-tmp/nowcastnet_runs/north_china_3h
+```
+
+Main outputs are:
+
+```text
+/root/autodl-tmp/nowcastnet_runs/north_china_3h/checkpoints/radar_3h_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/north_china_3h/checkpoints/pwv_v2_3h_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/north_china_3h/results/*/metrics.json
+/root/autodl-tmp/nowcastnet_runs/north_china_3h/reports/comparison_3h/
+```
 
 ## 3-6 Hour Experiments
 
