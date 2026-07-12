@@ -6,12 +6,18 @@ RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h}"
 DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${TEST_BATCH_SIZE:-8}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/server_env.sh"
+RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*RADAR*")}"
+PWV_ROOT="${PWV_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "PWV_2025_S" "*PWV*")}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/results"
+print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
+print_dataset_dir "PWV_ROOT" "${PWV_ROOT}"
 
 python -u test_pwv_coupled_v2.py \
-    --data_root "${DATA_ROOT}/RADAR_2025_S" \
-    --pwv_root "${DATA_ROOT}/PWV_2025_S" \
+    --data_root "${RADAR_ROOT}" \
+    --pwv_root "${PWV_ROOT}" \
     --checkpoint "${RUN_ROOT}/checkpoints/pwv_v2_3h_model.ckpt" \
     --output_dir "${RUN_ROOT}/results/pwv_v2_3h" \
     --device "${DEVICE}" \

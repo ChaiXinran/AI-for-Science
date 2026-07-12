@@ -163,6 +163,12 @@ BATCH_SIZE=8 EPOCHS=60 NUM_WORKERS=8 \
 bash ./server_run_all_3h.sh
 ```
 
+The server scripts auto-detect `RADAR_2025_S` and `PWV_2025_S` under `DATA_ROOT` up to three directory levels. If the dataset is stored with a different layout, override the resolved folders explicitly:
+
+```bash
+RADAR_ROOT=/path/to/RADAR_2025_S PWV_ROOT=/path/to/PWV_2025_S bash ./server_run_all_3h.sh
+```
+
 Individual stages can also be run separately:
 
 ```bash

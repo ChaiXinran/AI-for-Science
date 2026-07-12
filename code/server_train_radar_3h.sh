@@ -7,11 +7,15 @@ DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 EPOCHS="${EPOCHS:-60}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/server_env.sh"
+RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*RADAR*")}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/checkpoints"
+print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
 
 python -u train_adversarial_custom.py \
-    --data_root "${DATA_ROOT}/RADAR_2025_S" \
+    --data_root "${RADAR_ROOT}" \
     --save_dir "${RUN_ROOT}/checkpoints/radar_3h" \
     --readme_ckpt "${RUN_ROOT}/checkpoints/radar_3h_model.ckpt" \
     --device "${DEVICE}" \

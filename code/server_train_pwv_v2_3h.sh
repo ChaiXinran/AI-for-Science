@@ -7,12 +7,18 @@ DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 EPOCHS="${EPOCHS:-60}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/server_env.sh"
+RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*RADAR*")}"
+PWV_ROOT="${PWV_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "PWV_2025_S" "*PWV*")}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/checkpoints"
+print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
+print_dataset_dir "PWV_ROOT" "${PWV_ROOT}"
 
 python -u train_pwv_coupled_v2.py \
-    --data_root "${DATA_ROOT}/RADAR_2025_S" \
-    --pwv_root "${DATA_ROOT}/PWV_2025_S" \
+    --data_root "${RADAR_ROOT}" \
+    --pwv_root "${PWV_ROOT}" \
     --save_dir "${RUN_ROOT}/checkpoints/pwv_v2_3h" \
     --readme_ckpt "${RUN_ROOT}/checkpoints/pwv_v2_3h_model.ckpt" \
     --device "${DEVICE}" \

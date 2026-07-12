@@ -6,11 +6,15 @@ RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h}"
 DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${TEST_BATCH_SIZE:-8}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/server_env.sh"
+RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*RADAR*")}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/results"
+print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
 
 python -u test_custom.py \
-    --data_root "${DATA_ROOT}/RADAR_2025_S" \
+    --data_root "${RADAR_ROOT}" \
     --checkpoint "${RUN_ROOT}/checkpoints/radar_3h_model.ckpt" \
     --output_dir "${RUN_ROOT}/results/radar_3h" \
     --device "${DEVICE}" \
