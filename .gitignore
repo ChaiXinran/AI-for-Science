@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# 数据和实验输出
+data/
+datasets/
+outputs/
+results/
+reports/
+logs/
+runs/
+checkpoints/
+.idea/
+
+# 模型权重
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# 临时文件
+*.tmp
+.DS_Store
