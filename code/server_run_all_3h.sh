@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DATA_ROOT="${DATA_ROOT:-/root/autodl-tmp/datasets/north_china/DATA_2025_S}"
-RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h}"
+RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical}"
 DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 TEST_BATCH_SIZE="${TEST_BATCH_SIZE:-8}"
@@ -15,6 +15,8 @@ bash ./server_train_radar_3h.sh
 bash ./server_test_radar_3h.sh
 bash ./server_train_pwv_v2_3h.sh
 bash ./server_test_pwv_v2_3h.sh
+bash ./server_train_pwv_v3_3h.sh
+bash ./server_test_pwv_v3_3h.sh
 
 python -u make_server_3h_report.py \
     --run_root "${RUN_ROOT}" \

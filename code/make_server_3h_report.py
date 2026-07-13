@@ -14,17 +14,24 @@ EXPERIMENTS = {
     "Radar-only": {
         "metrics": "results/radar_3h/metrics.json",
         "sample": "results/radar_3h/sample_0000",
+        "required": True,
     },
     "PWV V2": {
         "metrics": "results/pwv_v2_3h/metrics.json",
         "sample": "results/pwv_v2_3h/sample_0000",
+        "required": True,
+    },
+    "PWV V3": {
+        "metrics": "results/pwv_v3_3h/metrics.json",
+        "sample": "results/pwv_v3_3h/sample_0000",
+        "required": False,
     },
 }
 
 
 def build_parser():
     parser = argparse.ArgumentParser(description="Build comparison plots for server 3h experiments")
-    parser.add_argument("--run_root", type=str, default="/root/autodl-tmp/nowcastnet_runs/north_china_3h")
+    parser.add_argument("--run_root", type=str, default="/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical")
     parser.add_argument("--output_dir", type=str, default="")
     return parser
 
@@ -41,7 +48,7 @@ def load_metrics(run_root):
         path = run_root / cfg["metrics"]
         if path.exists():
             metrics[name] = read_json(path)
-        else:
+        elif cfg.get("required", True):
             missing.append(str(path))
     if missing:
         raise SystemExit("Missing metrics files:\n" + "\n".join(missing))
@@ -83,7 +90,7 @@ def save_lead_curves(metrics, out_dir):
             ax.plot(x, y, marker="o", markersize=3.2, linewidth=2.0, label=name)
         draw_horizon_band(ax)
         ax.set_xlabel("Lead time (hours)")
-        ax.set_ylabel(metric.upper())
+        ax.set_ylabel(f"{metric.upper()} (mm/h)")
         ax.set_title(f"{metric.upper()} by lead time")
         ax.grid(True, alpha=0.25)
         ax.legend(frameon=False)
@@ -121,7 +128,7 @@ def save_horizon_bars(metrics, out_dir):
                 )
         ax.set_xticks(x)
         ax.set_xticklabels(horizons)
-        ax.set_ylabel(metric.upper())
+        ax.set_ylabel(f"{metric.upper()} (mm/h)")
         ax.set_title(f"Hourly horizon {metric.upper()}")
         ax.grid(axis="y", alpha=0.25)
         ax.legend(frameon=False)
@@ -154,11 +161,109 @@ def save_threshold_metrics(metrics, out_dir):
         if key != "far":
             ax.set_ylim(-0.05, 1.05)
         ax.grid(True, alpha=0.25)
-    axes[1, 0].set_xlabel("Threshold")
-    axes[1, 1].set_xlabel("Threshold")
+    axes[1, 0].set_xlabel("Rain-rate threshold (mm/h)")
+    axes[1, 1].set_xlabel("Rain-rate threshold (mm/h)")
     axes[0, 0].legend(frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(out_dir / "threshold_metrics.png")
+    plt.close(fig)
+
+
+def save_neighborhood_csi(metrics, out_dir):
+    if "neighborhood_event_metrics" not in metrics["Radar-only"]:
+        return
+    thresholds = metrics["Radar-only"]["neighborhood_thresholds"]
+    series = {"Persistence": metrics["Radar-only"]["neighborhood_event_metrics"]["persistence"]}
+    for name, data in metrics.items():
+        series[name] = data["neighborhood_event_metrics"]["model"]
+
+    fig, ax = plt.subplots(figsize=(8.0, 4.8), dpi=180)
+    x = np.arange(len(thresholds))
+    width = min(0.24, 0.8 / max(len(series), 1))
+    offsets = (np.arange(len(series)) - (len(series) - 1) / 2.0) * width
+    for offset, (name, values) in zip(offsets, series.items()):
+        y = [values[threshold_key(t)]["csin"] for t in thresholds]
+        bars = ax.bar(x + offset, y, width, label=name)
+        for bar in bars:
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{bar.get_height():.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{int(t)}" if float(t).is_integer() else str(t) for t in thresholds])
+    ax.set_xlabel("Rain-rate threshold (mm/h)")
+    ax.set_ylabel("5x5 neighbourhood CSI")
+    ax.set_ylim(0.0, 1.0)
+    ax.set_title("Paper-style CSIN")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_dir / "neighborhood_csi.png")
+    plt.close(fig)
+
+
+def save_psd_plots(metrics, out_dir):
+    if "psd" not in metrics["Radar-only"]:
+        return
+    wavelengths = metrics["Radar-only"]["psd"]["wavelengths"]
+    lead_keys = list(metrics["Radar-only"]["psd"]["lead_minutes"].keys())
+    for lead in lead_keys:
+        fig, ax = plt.subplots(figsize=(8.4, 5.0), dpi=180)
+        target = metrics["Radar-only"]["psd"]["lead_minutes"][lead]["target"]
+        ax.plot(wavelengths, target, color="0.15", linewidth=2.6, label="Ground truth")
+        persistence = metrics["Radar-only"]["psd"]["lead_minutes"][lead]["persistence"]
+        ax.plot(wavelengths, persistence, color="0.45", linewidth=2.0, linestyle="--", label="Persistence")
+        for name, data in metrics.items():
+            values = data["psd"]["lead_minutes"][lead]["model"]
+            ax.plot(wavelengths, values, marker="o", linewidth=2.0, label=name)
+        ax.set_xscale("log", base=2)
+        ax.set_yscale("log")
+        ax.set_xticks(wavelengths)
+        ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        ax.set_xlabel("Wavelength (km)")
+        ax.set_ylabel("Power spectral density")
+        ax.set_title(f"PSD at T+{int(lead) // 60}h")
+        ax.grid(True, alpha=0.25, which="both")
+        ax.legend(frameon=False)
+        fig.tight_layout()
+        fig.savefig(out_dir / f"psd_t{lead}min.png")
+        plt.close(fig)
+
+
+def save_psd_error(metrics, out_dir):
+    if "psd" not in metrics["Radar-only"]:
+        return
+    lead_keys = list(metrics["Radar-only"]["psd"]["lead_minutes"].keys())
+    labels = ["Persistence"] + list(metrics.keys())
+    x = np.arange(len(lead_keys))
+    width = min(0.24, 0.8 / max(len(labels), 1))
+    offsets = (np.arange(len(labels)) - (len(labels) - 1) / 2.0) * width
+    fig, ax = plt.subplots(figsize=(8.6, 4.8), dpi=180)
+    values = {
+        "Persistence": [
+            float(np.mean(metrics["Radar-only"]["psd"]["lead_minutes"][lead]["persistence_log_rmse"]))
+            for lead in lead_keys
+        ]
+    }
+    for name, data in metrics.items():
+        values[name] = [
+            float(np.mean(data["psd"]["lead_minutes"][lead]["model_log_rmse"]))
+            for lead in lead_keys
+        ]
+    for offset, label in zip(offsets, labels):
+        ax.bar(x + offset, values[label], width, label=label)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"T+{int(lead) // 60}h" for lead in lead_keys])
+    ax.set_ylabel("Mean log-PSD RMSE")
+    ax.set_title("PSD distance to ground truth, lower is better")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_dir / "psd_log_rmse.png")
     plt.close(fig)
 
 
@@ -196,6 +301,12 @@ def save_sample_grid(run_root, out_dir):
         ("PWV V2", lambda i: open_rgb(pwv / f"pd_{i:02d}.png")),
         ("Coupling C", lambda i: colorize_gray(pwv / f"c_{i:02d}.png", cmap="magma")),
     ]
+    pwv_v3 = run_root / EXPERIMENTS["PWV V3"]["sample"]
+    if pwv_v3.exists():
+        rows.insert(4, ("PWV V3", lambda i: open_rgb(pwv_v3 / f"pd_{i:02d}.png")))
+        rows.insert(6, ("Coupling C V3", lambda i: colorize_gray(pwv_v3 / f"c_{i:02d}.png", cmap="magma")))
+        if (pwv_v3 / "s_00.png").exists():
+            rows.insert(7, ("Support S V3", lambda i: colorize_gray(pwv_v3 / f"s_{i:02d}.png", cmap="magma")))
     if (pwv / "pwv_00.png").exists():
         rows.append(("PWV input", lambda i: colorize_gray(pwv / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
@@ -224,18 +335,35 @@ def summarize(metrics, out_dir):
             "persistence": radar["persistence"],
             "radar_only": radar["model"],
             "pwv_v2": pwv["model"],
+            "pwv_v3": metrics.get("PWV V3", {}).get("model"),
             "pwv_coupling_mean": pwv.get("coupling_mean"),
             "pwv_coupling_std": pwv.get("coupling_std"),
+            "pwv_v3_coupling_mean": metrics.get("PWV V3", {}).get("coupling_mean"),
+            "pwv_v3_support_mean": metrics.get("PWV V3", {}).get("support_mean"),
         },
         "horizon_metrics": {
             "persistence": radar["horizon_metrics"]["persistence"],
             "radar_only": radar["horizon_metrics"]["model"],
             "pwv_v2": pwv["horizon_metrics"]["model"],
+            "pwv_v3": metrics.get("PWV V3", {}).get("horizon_metrics", {}).get("model"),
         },
         "event_metrics": {
             "persistence": radar["event_metrics"]["persistence"],
             "radar_only": radar["event_metrics"]["model"],
             "pwv_v2": pwv["event_metrics"]["model"],
+            "pwv_v3": metrics.get("PWV V3", {}).get("event_metrics", {}).get("model"),
+        },
+        "neighborhood_event_metrics": {
+            "persistence": radar.get("neighborhood_event_metrics", {}).get("persistence"),
+            "radar_only": radar.get("neighborhood_event_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("neighborhood_event_metrics", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_event_metrics", {}).get("model"),
+        },
+        "neighborhood_score": {
+            "persistence": radar.get("neighborhood_score", {}).get("persistence"),
+            "radar_only": radar.get("neighborhood_score", {}).get("model"),
+            "pwv_v2": pwv.get("neighborhood_score", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_score", {}).get("model"),
         },
     }
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
@@ -252,6 +380,9 @@ def main():
     save_lead_curves(metrics, out_dir)
     save_horizon_bars(metrics, out_dir)
     save_threshold_metrics(metrics, out_dir)
+    save_neighborhood_csi(metrics, out_dir)
+    save_psd_plots(metrics, out_dir)
+    save_psd_error(metrics, out_dir)
     save_sample_grid(run_root, out_dir)
     summarize(metrics, out_dir)
     print(f"saved server comparison report to {out_dir}")

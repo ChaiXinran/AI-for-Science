@@ -121,11 +121,12 @@ def make_dataloader(args, split, max_samples):
 
 
 def weighted_l1(pred, target, intensity_scale):
+    scale = max(float(intensity_scale), 1.0)
     weight = torch.ones_like(target)
-    weight = weight + 2.0 * (target >= 16.0).float()
-    weight = weight + 4.0 * (target >= 32.0).float()
-    weight = weight + 8.0 * (target >= 64.0).float()
-    weight = weight * (1.0 + target / max(float(intensity_scale), 1.0))
+    weight = weight + 2.0 * (target >= 0.125 * scale).float()
+    weight = weight + 4.0 * (target >= 0.25 * scale).float()
+    weight = weight + 8.0 * (target >= 0.5 * scale).float()
+    weight = weight * (1.0 + target / scale)
     return (weight * (pred - target).abs()).mean()
 
 

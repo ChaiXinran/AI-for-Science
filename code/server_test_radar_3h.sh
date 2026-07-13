@@ -2,19 +2,23 @@
 set -euo pipefail
 
 DATA_ROOT="${DATA_ROOT:-/root/autodl-tmp/datasets/north_china/DATA_2025_S}"
-RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h}"
+RUN_ROOT="${RUN_ROOT:-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical}"
 DEVICE="${DEVICE:-cuda:0}"
 BATCH_SIZE="${TEST_BATCH_SIZE:-8}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/server_env.sh"
 RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*RADAR*")}"
+RAIN_ROOT="${RAIN_ROOT:-$(try_resolve_dataset_dir "${DATA_ROOT}" "RAIN_2025_S" "*RAIN*" || true)}"
+PRECIP_ROOT="${PRECIP_ROOT:-${RAIN_ROOT:-${RADAR_ROOT}}}"
+PRECIP_SCALE="${PRECIP_SCALE:-35}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/results"
 print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
+print_dataset_dir "PRECIP_ROOT" "${PRECIP_ROOT}"
 
 python -u test_custom.py \
-    --data_root "${RADAR_ROOT}" \
+    --data_root "${PRECIP_ROOT}" \
     --checkpoint "${RUN_ROOT}/checkpoints/radar_3h_model.ckpt" \
     --output_dir "${RUN_ROOT}/results/radar_3h" \
     --device "${DEVICE}" \
@@ -30,7 +34,15 @@ python -u test_custom.py \
     --val_ratio 0.1 \
     --max_samples 0 \
     --num_save_samples 24 \
-    --metric_thresholds "1,5,10,20,40" \
+    --intensity_scale "${PRECIP_SCALE}" \
+    --pixel_min 0 \
+    --pixel_max 255 \
+    --metric_thresholds "0.5,2,5,10,30" \
+    --neighborhood_metric_thresholds "16,32" \
+    --neighborhood_size 5 \
+    --psd_lead_minutes "60,120,180" \
+    --psd_wavelengths "4,8,16,32,64" \
+    --grid_km 1 \
     --frame_minutes 6 \
     --horizon_bins "0-1,1-2,2-3" \
     2>&1 | tee "${RUN_ROOT}/logs/test_radar_3h.log"

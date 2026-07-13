@@ -12,6 +12,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.configs = configs
         self.pred_length = self.configs.total_length - self.configs.input_length
+        self.intensity_scale = float(getattr(configs, "intensity_scale", 128.0))
 
         self.evo_net = Evolution_Network(self.configs.input_length, self.pred_length, base_c=32)
         self.gen_enc = Generative_Encoder(self.configs.total_length, base_c=self.configs.ngf)
@@ -49,7 +50,7 @@ class Net(nn.Module):
         evo_result = torch.cat(series, dim=1)
         advected_result = torch.cat(advected_series, dim=1)
 
-        evo_result = evo_result/128
+        evo_result = evo_result / self.intensity_scale
         
         # Generative Network
         evo_feature = self.gen_enc(torch.cat([input_frames, evo_result], dim=1))

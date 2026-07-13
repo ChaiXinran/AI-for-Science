@@ -36,6 +36,34 @@ resolve_dataset_dir() {
     return 2
 }
 
+try_resolve_dataset_dir() {
+    local root="$1"
+    local preferred="$2"
+    local fallback_pattern="$3"
+
+    if [[ ! -d "${root}" ]]; then
+        return 1
+    fi
+    if [[ -d "${root}/${preferred}" ]]; then
+        printf '%s\n' "${root}/${preferred}"
+        return 0
+    fi
+
+    local found
+    found="$(find "${root}" -maxdepth 3 -type d -name "${preferred}" -print -quit 2>/dev/null || true)"
+    if [[ -n "${found}" ]]; then
+        printf '%s\n' "${found}"
+        return 0
+    fi
+
+    found="$(find "${root}" -maxdepth 3 -type d -iname "${fallback_pattern}" -print -quit 2>/dev/null || true)"
+    if [[ -n "${found}" ]]; then
+        printf '%s\n' "${found}"
+        return 0
+    fi
+    return 1
+}
+
 print_dataset_dir() {
     local label="$1"
     local path="$2"

@@ -1,13 +1,18 @@
 # Custom NowcastNet Training Workflow
 
-This project now supports training and testing NowcastNet on the local PNG radar dataset under `data/DATA_2025_S/RADAR_2025_S`.
+This project now supports training and testing NowcastNet on the local PNG datasets under `data/DATA_2025_S/`.
 
 ## Data Layout
 
 The custom loader expects chronological PNG frames grouped by day:
 
 ```text
-data/DATA_2025_S/RADAR_2025_S/
+data/DATA_2025_S/
+  RADAR_2025_S/
+  RAIN_2025_S/
+  PWV_2025_S/
+
+data/DATA_2025_S/RAIN_2025_S/
   202505/
     20250501/
       2025-05-01-01-00-00.png
@@ -19,19 +24,29 @@ Each sample is a sliding 29-frame window: 9 input frames and 20 target frames. Y
 
 ## Pixel Calibration
 
-By default, images are treated as white-background radar maps:
+Images are white-background grayscale fields. The physical mapping is:
 
 ```text
-intensity = (255 - pixel) / 255 * 128
+value = (255 - pixel) / 255 * scale
+
+PWV:   scale = 80 mm
+Radar: scale = 50 dBZ
+Rain:  scale = 35 mm/h
 ```
 
-This is controlled by:
+The server full experiment uses `RAIN_2025_S` as the predicted precipitation field, so MAE/RMSE and threshold metrics are in `mm/h`. The PWV-coupled model reads PWV with `--pwv_intensity_scale 80 --pwv_invert`.
+
+For paper-style rain-rate verification, use:
 
 ```bash
---intensity_scale 128 --pixel_min 0 --pixel_max 255
+--intensity_scale 35 --pixel_min 0 --pixel_max 255
+--metric_thresholds 0.5,2,5,10,30
+--neighborhood_metric_thresholds 16,32 --neighborhood_size 5
 ```
 
-Use `--no_invert` only if brighter pixels mean stronger precipitation. For physically meaningful rain-rate evaluation, replace these defaults with the real mapping from pixel values to precipitation intensity.
+The original paper also reports 64 mm/h neighbourhood CSI, but this dataset's rain-rate mapping only reaches 35 mm/h. That threshold is omitted by default because it has no event discrimination here.
+
+Use `--no_invert` only if brighter pixels mean stronger values.
 
 ## GPU Smoke Test
 
@@ -150,23 +165,44 @@ results/quick_3h_pwv_v2/sample_0000/c_*.png
 
 V2 currently trains in full precision by default for numerical stability. GPU is still used through `--device cuda:0`; mixed precision is deliberately disabled inside the V2 trainer for now.
 
+## PWV-Coupled V3
+
+V3 is the false-alarm-control branch. It keeps the V2 source decomposition, then adds feature-space gating and an explicit PWV support gate:
+
+```text
+F_fuse = Z_r + C_f * A_pwv
+s_t = s_t^radar + C_s * S_pwv * s_t^PWV
+```
+
+`S_pwv` is trained to stay low in dry regions where PWV does not support precipitation. The V3 trainer adds:
+
+```text
+false_alarm_loss: penalizes predicted rain in dry, PWV-unsupported areas
+support_dry_loss: penalizes an open support gate in those same areas
+support_l1: keeps PWV support sparse unless useful
+```
+
+V3 testing saves the source coupling as `c_*.png` and the PWV support gate as `s_*.png`.
+
 ## Server Full 3-Hour Training
 
-Use these scripts for full-sample server experiments on the AutoDL 5090 machine. They compare the radar-only baseline against PWV V2 with the same train/validation/test split, 9 input frames, 30 forecast frames, stride 1, and all available windows.
+Use these scripts for full-sample server experiments on the AutoDL 5090 machine. They compare the baseline NowcastNet against PWV V2 and PWV V3 with the same train/validation/test split, 9 input frames, 30 forecast frames, stride 1, and all available windows.
+
+The scripts automatically prefer `RAIN_2025_S` as the predicted field and evaluate rain rate in `mm/h`. `RADAR_2025_S` is still detected and printed for traceability, and `PWV_2025_S` is used by PWV V2/V3.
 
 ```bash
 cd /path/to/capsule-3935105/code
 conda activate nowcast
 DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S \
-RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/north_china_3h \
+RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical \
 BATCH_SIZE=8 EPOCHS=60 NUM_WORKERS=8 \
 bash ./server_run_all_3h.sh
 ```
 
-The server scripts auto-detect `RADAR_2025_S` and `PWV_2025_S` under `DATA_ROOT` up to three directory levels. If the dataset is stored with a different layout, override the resolved folders explicitly:
+The server scripts auto-detect `RADAR_2025_S`, `RAIN_2025_S`, and `PWV_2025_S` under `DATA_ROOT` up to three directory levels. If the dataset is stored with a different layout, override the resolved folders explicitly:
 
 ```bash
-RADAR_ROOT=/path/to/RADAR_2025_S PWV_ROOT=/path/to/PWV_2025_S bash ./server_run_all_3h.sh
+PRECIP_ROOT=/path/to/RAIN_2025_S PWV_ROOT=/path/to/PWV_2025_S bash ./server_run_all_3h.sh
 ```
 
 Individual stages can also be run separately:
@@ -176,16 +212,32 @@ bash ./server_train_radar_3h.sh
 bash ./server_test_radar_3h.sh
 bash ./server_train_pwv_v2_3h.sh
 bash ./server_test_pwv_v2_3h.sh
-python -u make_server_3h_report.py --run_root /root/autodl-tmp/nowcastnet_runs/north_china_3h
+bash ./server_train_pwv_v3_3h.sh
+bash ./server_test_pwv_v3_3h.sh
+python -u make_server_3h_report.py --run_root /root/autodl-tmp/nowcastnet_runs/north_china_3h_physical
 ```
 
 Main outputs are:
 
 ```text
-/root/autodl-tmp/nowcastnet_runs/north_china_3h/checkpoints/radar_3h_model.ckpt
-/root/autodl-tmp/nowcastnet_runs/north_china_3h/checkpoints/pwv_v2_3h_model.ckpt
-/root/autodl-tmp/nowcastnet_runs/north_china_3h/results/*/metrics.json
-/root/autodl-tmp/nowcastnet_runs/north_china_3h/reports/comparison_3h/
+/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/radar_3h_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v2_3h_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v3_3h_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/results/*/metrics.json
+/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/reports/comparison_3h/
+```
+
+The comparison report includes:
+
+```text
+lead_mae.png / lead_rmse.png
+horizon_mae.png / horizon_rmse.png
+threshold_metrics.png
+neighborhood_csi.png
+psd_t60min.png / psd_t120min.png / psd_t180min.png
+psd_log_rmse.png
+sample_0000_3h_grid.png
+summary.json
 ```
 
 ## 3-6 Hour Experiments

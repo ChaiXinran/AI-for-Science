@@ -21,12 +21,13 @@ print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
 print_dataset_dir "PRECIP_ROOT" "${PRECIP_ROOT}"
 print_dataset_dir "PWV_ROOT" "${PWV_ROOT}"
 
-python -u train_pwv_coupled_v2.py \
+python -u train_pwv_coupled_v3.py \
     --data_root "${PRECIP_ROOT}" \
     --pwv_root "${PWV_ROOT}" \
-    --save_dir "${RUN_ROOT}/checkpoints/pwv_v2_3h" \
-    --readme_ckpt "${RUN_ROOT}/checkpoints/pwv_v2_3h_model.ckpt" \
+    --save_dir "${RUN_ROOT}/checkpoints/pwv_v3_3h" \
+    --readme_ckpt "${RUN_ROOT}/checkpoints/pwv_v3_3h_model.ckpt" \
     --device "${DEVICE}" \
+    --model_name PWVCoupledNowcastNetV3 \
     --input_length 9 \
     --total_length 39 \
     --img_height 96 \
@@ -49,6 +50,7 @@ python -u train_pwv_coupled_v2.py \
     --disc_channels 32 \
     --evo_base_channels 32 \
     --pwv_base_channels 24 \
+    --fusion_channels 32 \
     --lambda_forecast 1.0 \
     --lambda_evolution 0.5 \
     --lambda_advected 0.25 \
@@ -56,10 +58,14 @@ python -u train_pwv_coupled_v2.py \
     --lambda_pool 0.2 \
     --lambda_adv 0.01 \
     --lambda_coupling_smooth 0.02 \
-    --lambda_coupling_l1 0.0005 \
-    --lambda_align 0.05 \
-    --lambda_shuffle 0.05 \
+    --lambda_coupling_l1 0.001 \
+    --lambda_align 0.03 \
+    --lambda_shuffle 0.03 \
     --shuffle_margin 0.02 \
+    --lambda_false_alarm 0.25 \
+    --lambda_support_dry 0.05 \
+    --lambda_support_l1 0.01 \
+    --false_alarm_threshold 2.0 \
     --grad_clip 1.0 \
     --log_interval 100 \
-    2>&1 | tee "${RUN_ROOT}/logs/train_pwv_v2_3h.log"
+    2>&1 | tee "${RUN_ROOT}/logs/train_pwv_v3_3h.log"

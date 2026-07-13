@@ -7,20 +7,28 @@ from torch.utils.data import DataLoader
 
 from nowcasting.data_provider.custom_png import PngSequenceDataset
 from nowcasting.models.nowcastnet_pwv_v2 import PWVCoupledNetV2
+from nowcasting.models.nowcastnet_pwv_v3 import PWVCoupledNetV3
 from test_custom import (
+    average_neighborhood_score,
     finalize_event_metrics,
     finalize_horizon_metrics,
     finalize_lead_metrics,
+    finalize_neighborhood_metrics,
+    finalize_psd_metrics,
     finalize_scalar_totals,
     init_event_counts,
     init_horizon_totals,
     init_lead_totals,
+    init_psd_totals,
     init_scalar_totals,
+    parse_float_list,
     parse_horizon_bins,
     parse_thresholds,
     save_sequence,
     update_event_counts,
     update_lead_and_horizon,
+    update_neighborhood_event_counts,
+    update_psd_totals,
     update_scalar_totals,
 )
 
@@ -58,8 +66,13 @@ def build_parser():
     parser.add_argument("--pwv_pixel_max", type=float, default=255.0)
     parser.add_argument("--pwv_invert", action="store_true")
     parser.add_argument("--metric_thresholds", type=str, default="1,5,10,20,40")
+    parser.add_argument("--neighborhood_metric_thresholds", type=str, default="")
+    parser.add_argument("--neighborhood_size", type=int, default=5)
     parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--horizon_bins", type=str, default="0-1,1-2,2-3,3-6")
+    parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
+    parser.add_argument("--psd_wavelengths", type=str, default="4,8,16,32,64")
+    parser.add_argument("--grid_km", type=float, default=1.0)
     return parser
 
 
@@ -105,23 +118,33 @@ def main():
     )
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, drop_last=False, pin_memory=True)
 
-    model = PWVCoupledNetV2(args).to(args.device)
+    model_cls = PWVCoupledNetV3 if args.model_name == "PWVCoupledNowcastNetV3" else PWVCoupledNetV2
+    model = model_cls(args).to(args.device)
     model.load_state_dict(load_state(args.checkpoint, args.device))
     model.eval()
 
     model_totals = init_scalar_totals()
     persistence_totals = init_scalar_totals()
     thresholds = parse_thresholds(args.metric_thresholds)
+    neighborhood_thresholds = parse_thresholds(args.neighborhood_metric_thresholds or args.metric_thresholds)
     horizon_bins = parse_horizon_bins(args.horizon_bins)
+    psd_lead_minutes = parse_float_list(args.psd_lead_minutes)
+    psd_wavelengths = parse_float_list(args.psd_wavelengths)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
+    model_neighborhood_counts = init_event_counts(neighborhood_thresholds)
+    persistence_neighborhood_counts = init_event_counts(neighborhood_thresholds)
     model_lead_totals = init_lead_totals(args.gen_oc)
     persistence_lead_totals = init_lead_totals(args.gen_oc)
     model_horizon_totals = init_horizon_totals(horizon_bins)
     persistence_horizon_totals = init_horizon_totals(horizon_bins)
+    psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
     coupling_sum = 0.0
     coupling_sq_sum = 0.0
     coupling_count = 0
+    support_sum = 0.0
+    support_sq_sum = 0.0
+    support_count = 0
     saved = 0
 
     with torch.no_grad():
@@ -141,9 +164,17 @@ def main():
             update_lead_and_horizon(persistence_lead_totals, persistence_horizon_totals, persistence, target, args.frame_minutes, horizon_bins)
             update_event_counts(model_event_counts, pred, target, thresholds)
             update_event_counts(persistence_event_counts, persistence, target, thresholds)
+            update_neighborhood_event_counts(model_neighborhood_counts, pred, target, neighborhood_thresholds, args.neighborhood_size)
+            update_neighborhood_event_counts(persistence_neighborhood_counts, persistence, target, neighborhood_thresholds, args.neighborhood_size)
+            update_psd_totals(psd_totals, pred, target, persistence, args.frame_minutes, psd_lead_minutes, psd_wavelengths, args.grid_km)
             coupling_sum += coupling.sum().item()
             coupling_sq_sum += (coupling * coupling).sum().item()
             coupling_count += coupling.numel()
+            if "support_gate" in aux:
+                support = aux["support_gate"][:, :, 0]
+                support_sum += support.sum().item()
+                support_sq_sum += (support * support).sum().item()
+                support_count += support.numel()
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
@@ -151,6 +182,7 @@ def main():
             pwv_np = pwv.detach().cpu().numpy()
             persistence_np = persistence.detach().cpu().numpy()
             coupling_np = coupling.detach().cpu().numpy()
+            support_np = aux["support_gate"][:, :, 0].detach().cpu().numpy() if "support_gate" in aux else None
 
             for i in range(pred_np.shape[0]):
                 if saved >= args.num_save_samples:
@@ -160,14 +192,20 @@ def main():
                 save_sequence(sample_dir, "gt_", target_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
                 save_sequence(sample_dir, "pd_", pred_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
                 save_sequence(sample_dir, "ps_", persistence_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
-                save_sequence(sample_dir, "pwv_", pwv_np[i, :args.input_length], args.pwv_intensity_scale, 0.0, 255.0, False)
+                save_sequence(sample_dir, "pwv_", pwv_np[i, :args.input_length], args.pwv_intensity_scale, args.pwv_pixel_min, args.pwv_pixel_max, args.pwv_invert)
                 save_sequence(sample_dir, "c_", coupling_np[i], 1.0, 0.0, 255.0, False)
+                if support_np is not None:
+                    save_sequence(sample_dir, "s_", support_np[i], 1.0, 0.0, 255.0, False)
                 saved += 1
 
             print("tested batch {}".format(batch_id + 1), flush=True)
 
     coupling_mean = coupling_sum / max(coupling_count, 1)
     coupling_var = coupling_sq_sum / max(coupling_count, 1) - coupling_mean * coupling_mean
+    support_mean = support_sum / max(support_count, 1) if support_count else None
+    support_var = support_sq_sum / max(support_count, 1) - support_mean * support_mean if support_count else None
+    model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
+    persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
     metrics = {
         "model": finalize_scalar_totals(model_totals),
         "persistence": finalize_scalar_totals(persistence_totals),
@@ -175,7 +213,19 @@ def main():
         "saved_samples": saved,
         "coupling_mean": coupling_mean,
         "coupling_std": max(coupling_var, 0.0) ** 0.5,
+        "support_mean": support_mean,
+        "support_std": max(support_var, 0.0) ** 0.5 if support_var is not None else None,
+        "units": {
+            "prediction": "mm/h",
+            "thresholds": "mm/h",
+            "pwv": "mm",
+            "pixel_mapping": "255->0, 0->scale when invert is true",
+            "intensity_scale": args.intensity_scale,
+            "pwv_intensity_scale": args.pwv_intensity_scale,
+        },
         "thresholds": thresholds,
+        "neighborhood_thresholds": neighborhood_thresholds,
+        "neighborhood_size": args.neighborhood_size,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -189,6 +239,15 @@ def main():
             "model": finalize_event_metrics(model_event_counts),
             "persistence": finalize_event_metrics(persistence_event_counts),
         },
+        "neighborhood_event_metrics": {
+            "model": model_neighborhood_metrics,
+            "persistence": persistence_neighborhood_metrics,
+        },
+        "neighborhood_score": {
+            "model": average_neighborhood_score(model_neighborhood_metrics),
+            "persistence": average_neighborhood_score(persistence_neighborhood_metrics),
+        },
+        "psd": finalize_psd_metrics(psd_totals, psd_wavelengths, args.grid_km),
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)

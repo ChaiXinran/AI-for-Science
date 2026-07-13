@@ -158,7 +158,7 @@ def main():
                 save_sequence(sample_dir, "gt_", target_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
                 save_sequence(sample_dir, "pd_", pred_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
                 save_sequence(sample_dir, "ps_", persistence_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
-                save_sequence(sample_dir, "pwv_", pwv_np[i, :args.input_length], args.pwv_intensity_scale, 0.0, 255.0, False)
+                save_sequence(sample_dir, "pwv_", pwv_np[i, :args.input_length], args.pwv_intensity_scale, args.pwv_pixel_min, args.pwv_pixel_max, args.pwv_invert)
                 save_sequence(sample_dir, "c_", coupling_np[i], 1.0, 0.0, 255.0, False)
                 saved += 1
 
@@ -170,6 +170,14 @@ def main():
         "samples": len(dataset),
         "saved_samples": saved,
         "coupling_mean": coupling_sum / max(coupling_count, 1),
+        "units": {
+            "prediction": "mm/h",
+            "thresholds": "mm/h",
+            "pwv": "mm",
+            "pixel_mapping": "255->0, 0->scale when invert is true",
+            "intensity_scale": args.intensity_scale,
+            "pwv_intensity_scale": args.pwv_intensity_scale,
+        },
         "thresholds": thresholds,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
