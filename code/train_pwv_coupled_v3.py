@@ -42,6 +42,10 @@ def build_parser():
         readme_ckpt="../checkpoints/pwv_coupled_v3_model.ckpt",
     )
     parser.add_argument("--fusion_channels", type=int, default=32)
+    parser.add_argument("--pwv_attn_dim", type=int, default=64)
+    parser.add_argument("--pwv_attn_heads", type=int, default=4)
+    parser.add_argument("--pwv_attn_downsample", type=int, default=4)
+    parser.add_argument("--pwv_attn_source_scale", type=float, default=0.0)
     parser.add_argument("--lambda_false_alarm", type=float, default=0.25)
     parser.add_argument("--lambda_support_dry", type=float, default=0.05)
     parser.add_argument("--lambda_support_l1", type=float, default=0.01)

@@ -53,6 +53,11 @@ def build_parser():
     parser.add_argument("--lead_time_embed_dim", type=int, default=16)
     parser.add_argument("--evo_base_channels", type=int, default=32)
     parser.add_argument("--pwv_base_channels", type=int, default=24)
+    parser.add_argument("--fusion_channels", type=int, default=32)
+    parser.add_argument("--pwv_attn_dim", type=int, default=64)
+    parser.add_argument("--pwv_attn_heads", type=int, default=4)
+    parser.add_argument("--pwv_attn_downsample", type=int, default=4)
+    parser.add_argument("--pwv_attn_source_scale", type=float, default=0.0)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--stride", type=int, default=1)
@@ -115,6 +120,8 @@ def main():
     support_sum = 0.0
     support_sq_sum = 0.0
     support_count = 0
+    attention_sum = None
+    attention_count = 0
     saved = 0
 
     with torch.no_grad():
@@ -145,6 +152,13 @@ def main():
                 support_sum += support.sum().item()
                 support_sq_sum += (support * support).sum().item()
                 support_count += support.numel()
+            if "pwv_temporal_attention" in aux:
+                attention = aux["pwv_temporal_attention"]
+                item = attention.mean(dim=(0, 2, 3)).detach().cpu()
+                if attention_sum is None:
+                    attention_sum = torch.zeros_like(item)
+                attention_sum += item * attention.size(0)
+                attention_count += attention.size(0)
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
@@ -153,6 +167,7 @@ def main():
             persistence_np = persistence.detach().cpu().numpy()
             coupling_np = coupling.detach().cpu().numpy()
             support_np = aux["support_gate"][:, :, 0].detach().cpu().numpy() if "support_gate" in aux else None
+            attention_np = aux["pwv_temporal_attention"].detach().cpu().numpy() if "pwv_temporal_attention" in aux else None
 
             for i in range(pred_np.shape[0]):
                 if saved >= args.num_save_samples:
@@ -166,6 +181,8 @@ def main():
                 save_sequence(sample_dir, "c_", coupling_np[i], 1.0, 0.0, 255.0, False)
                 if support_np is not None:
                     save_sequence(sample_dir, "s_", support_np[i], 1.0, 0.0, 255.0, False)
+                if attention_np is not None:
+                    save_sequence(sample_dir, "a_", attention_np[i], 1.0, 0.0, 255.0, False)
                 saved += 1
 
             print("tested batch {}".format(batch_id + 1), flush=True)
@@ -174,6 +191,9 @@ def main():
     coupling_var = coupling_sq_sum / max(coupling_count, 1) - coupling_mean * coupling_mean
     support_mean = support_sum / max(support_count, 1) if support_count else None
     support_var = support_sq_sum / max(support_count, 1) - support_mean * support_mean if support_count else None
+    attention_mean = None
+    if attention_sum is not None and attention_count:
+        attention_mean = (attention_sum / attention_count).tolist()
     model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
     persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
     metrics = {
@@ -185,6 +205,7 @@ def main():
         "coupling_std": max(coupling_var, 0.0) ** 0.5,
         "support_mean": support_mean,
         "support_std": max(support_var, 0.0) ** 0.5 if support_var is not None else None,
+        "pwv_temporal_attention_mean": attention_mean,
         "units": {
             "prediction": "mm/h",
             "thresholds": "mm/h",

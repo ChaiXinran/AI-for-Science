@@ -26,6 +26,11 @@ EXPERIMENTS = {
         "sample": "results/pwv_v3_3h/sample_0000",
         "required": False,
     },
+    "PWV V4": {
+        "metrics": "results/pwv_v4_3h/metrics.json",
+        "sample": "results/pwv_v4_3h/sample_0000",
+        "required": False,
+    },
 }
 
 
@@ -323,7 +328,9 @@ def save_sample_grid(run_root, out_dir):
             rows.append((f"Coupling {name}", lambda i, p=path: colorize_gray(p / f"c_{i:02d}.png", cmap="magma")))
         if (path / "s_00.png").exists():
             rows.append((f"Support {name}", lambda i, p=path: colorize_gray(p / f"s_{i:02d}.png", cmap="magma")))
-    pwv_sample = existing.get("PWV V2") or existing.get("PWV V3")
+        if (path / "a_00.png").exists():
+            rows.append((f"Attention {name}", lambda i, p=path: colorize_gray(p / f"a_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
+    pwv_sample = existing.get("PWV V2") or existing.get("PWV V3") or existing.get("PWV V4")
     if pwv_sample is not None and (pwv_sample / "pwv_00.png").exists():
         rows.append(("PWV input", lambda i, p=pwv_sample: colorize_gray(p / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
@@ -354,34 +361,42 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("model"),
             "pwv_v2": pwv.get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("model"),
             "pwv_coupling_mean": pwv.get("coupling_mean"),
             "pwv_coupling_std": pwv.get("coupling_std"),
             "pwv_v3_coupling_mean": metrics.get("PWV V3", {}).get("coupling_mean"),
             "pwv_v3_support_mean": metrics.get("PWV V3", {}).get("support_mean"),
+            "pwv_v4_coupling_mean": metrics.get("PWV V4", {}).get("coupling_mean"),
+            "pwv_v4_support_mean": metrics.get("PWV V4", {}).get("support_mean"),
+            "pwv_v4_temporal_attention_mean": metrics.get("PWV V4", {}).get("pwv_temporal_attention_mean"),
         },
         "horizon_metrics": {
             "persistence": ref["horizon_metrics"]["persistence"],
             "radar_only": metrics.get("Radar-only", {}).get("horizon_metrics", {}).get("model"),
             "pwv_v2": pwv.get("horizon_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("horizon_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("horizon_metrics", {}).get("model"),
         },
         "event_metrics": {
             "persistence": ref["event_metrics"]["persistence"],
             "radar_only": metrics.get("Radar-only", {}).get("event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("event_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("event_metrics", {}).get("model"),
         },
         "neighborhood_event_metrics": {
             "persistence": ref.get("neighborhood_event_metrics", {}).get("persistence"),
             "radar_only": metrics.get("Radar-only", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_event_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_event_metrics", {}).get("model"),
         },
         "neighborhood_score": {
             "persistence": ref.get("neighborhood_score", {}).get("persistence"),
             "radar_only": metrics.get("Radar-only", {}).get("neighborhood_score", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_score", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_score", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_score", {}).get("model"),
         },
     }
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
