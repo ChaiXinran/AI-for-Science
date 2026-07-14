@@ -73,6 +73,8 @@ def build_parser():
     parser.add_argument("--pwv_pixel_min", type=float, default=0.0)
     parser.add_argument("--pwv_pixel_max", type=float, default=255.0)
     parser.add_argument("--pwv_invert", action="store_true")
+    parser.add_argument("--pwv_tendency_windows", type=str, default="")
+    parser.add_argument("--pwv_tendency_mode", choices=["diff", "slope", "both"], default="slope")
     parser.add_argument("--metric_thresholds", type=str, default="1,5,10,20,40")
     parser.add_argument("--neighborhood_metric_thresholds", type=str, default="")
     parser.add_argument("--neighborhood_size", type=int, default=5)

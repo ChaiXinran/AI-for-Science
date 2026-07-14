@@ -57,7 +57,7 @@ def dry_unsupported_mask(target, frames, pwv, args):
     last_rain = frames[:, args.input_length - 1, :, :, 0]
     dry = (target < args.false_alarm_threshold).float()
     no_recent_rain = (last_rain < args.false_alarm_threshold).float().unsqueeze(1)
-    pwv_signal = pwv_physical_signal(pwv, args.input_length).unsqueeze(1)
+    pwv_signal = pwv_physical_signal(pwv, args.input_length, args).unsqueeze(1)
     unsupported = (1.0 - pwv_signal).clamp(0.0, 1.0)
     return dry * no_recent_rain * unsupported
 

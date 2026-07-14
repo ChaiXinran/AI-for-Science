@@ -13,6 +13,7 @@ from nowcasting.experiments.common import (
     save_json_args,
 )
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
+from nowcasting.models.pwv_features import positive_growth_signal
 from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
@@ -65,6 +66,9 @@ def build_parser():
     parser.add_argument("--pwv_pixel_min", type=float, default=0.0)
     parser.add_argument("--pwv_pixel_max", type=float, default=255.0)
     parser.add_argument("--pwv_invert", action="store_true")
+    parser.add_argument("--frame_minutes", type=float, default=6.0)
+    parser.add_argument("--pwv_tendency_windows", type=str, default="")
+    parser.add_argument("--pwv_tendency_mode", choices=["diff", "slope", "both"], default="slope")
     parser.add_argument("--lambda_forecast", type=float, default=1.0)
     parser.add_argument("--lambda_evolution", type=float, default=0.5)
     parser.add_argument("--lambda_advected", type=float, default=0.25)
@@ -101,11 +105,14 @@ def normalize_positive(x):
     return x / denom
 
 
-def pwv_physical_signal(pwv, input_length):
+def pwv_physical_signal(pwv, input_length, args=None):
     history = pwv[:, :input_length]
     last = history[:, -1]
     first = history[:, 0]
-    delta = F.relu(last - first)
+    if args is None:
+        delta = F.relu(last - first)
+    else:
+        delta = positive_growth_signal(history, args)
     dx = F.pad(last[..., 1:] - last[..., :-1], (0, 1, 0, 0))
     dy = F.pad(last[..., 1:, :] - last[..., :-1, :], (0, 0, 0, 1))
     gradient = torch.sqrt(dx * dx + dy * dy + 1e-6)
@@ -115,7 +122,7 @@ def pwv_physical_signal(pwv, input_length):
 def coupling_alignment_loss(coupling, target, frames, pwv, args):
     last_radar = frames[:, args.input_length - 1, :, :, 0]
     rain_growth = normalize_positive(target - last_radar.unsqueeze(1))
-    pwv_signal = pwv_physical_signal(pwv, args.input_length).unsqueeze(1)
+    pwv_signal = pwv_physical_signal(pwv, args.input_length, args).unsqueeze(1)
     align_weight = rain_growth * pwv_signal
     return ((1.0 - coupling[:, :, 0]) * align_weight).sum() / align_weight.sum().clamp_min(1e-6)
 

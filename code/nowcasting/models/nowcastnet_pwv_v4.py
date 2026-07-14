@@ -10,6 +10,7 @@ from nowcasting.layers.generation.noise_projector import Noise_Projector
 from nowcasting.layers.utils import make_grid, warp
 from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 from nowcasting.models.nowcastnet_pwv_v2 import ConvBlock, LightweightUNet
+from nowcasting.models.pwv_features import base_pwv_features, build_pwv_features, pwv_feature_group_count
 
 
 class TemporalPWVCrossAttentionSource(nn.Module):
@@ -62,16 +63,7 @@ class TemporalPWVCrossAttentionSource(nn.Module):
         return F.avg_pool2d(x, kernel_size=self.downsample, stride=self.downsample)
 
     def _pwv_sequence_features(self, pwv_input):
-        mean = pwv_input.mean(dim=(1, 2, 3), keepdim=True)
-        std = pwv_input.std(dim=(1, 2, 3), keepdim=True).clamp_min(1e-4)
-        value = (pwv_input - mean) / std
-        anomaly = pwv_input - pwv_input.mean(dim=1, keepdim=True)
-        delta = torch.zeros_like(pwv_input)
-        delta[:, 1:] = pwv_input[:, 1:] - pwv_input[:, :-1]
-        dx = F.pad(pwv_input[..., :, 1:] - pwv_input[..., :, :-1], (0, 1, 0, 0))
-        dy = F.pad(pwv_input[..., 1:, :] - pwv_input[..., :-1, :], (0, 0, 0, 1))
-        gradient = torch.sqrt(dx * dx + dy * dy + 1e-6)
-        features = torch.stack([value, anomaly, delta, gradient], dim=2)
+        features = torch.stack(base_pwv_features(pwv_input), dim=2)
         return torch.clamp(features, -5.0, 5.0)
 
     def forward(self, radar_context, pwv_input, fused_feature):
@@ -129,7 +121,7 @@ class PWVCoupledNetV4(nn.Module):
         attn_downsample = getattr(configs, "pwv_attn_downsample", 4)
         attn_source_scale = getattr(configs, "pwv_attn_source_scale", 0.0)
         self.intensity_scale = float(getattr(configs, "intensity_scale", 128.0))
-        self.pwv_feature_groups = 4
+        self.pwv_feature_groups = pwv_feature_group_count(configs)
         pwv_channels = configs.input_length * self.pwv_feature_groups
 
         self.radar_evo_net = Evolution_Network(configs.input_length, self.pred_length, base_c=evo_base_c)
@@ -182,17 +174,7 @@ class PWVCoupledNetV4(nn.Module):
         return pwv_frames[:, :self.configs.input_length].to(input_frames.device)
 
     def _pwv_features(self, pwv_input):
-        mean = pwv_input.mean(dim=(1, 2, 3), keepdim=True)
-        std = pwv_input.std(dim=(1, 2, 3), keepdim=True).clamp_min(1e-4)
-        value = (pwv_input - mean) / std
-        anomaly = pwv_input - pwv_input.mean(dim=1, keepdim=True)
-        delta = torch.zeros_like(pwv_input)
-        delta[:, 1:] = pwv_input[:, 1:] - pwv_input[:, :-1]
-        dx = F.pad(pwv_input[..., :, 1:] - pwv_input[..., :, :-1], (0, 1, 0, 0))
-        dy = F.pad(pwv_input[..., 1:, :] - pwv_input[..., :-1, :], (0, 0, 0, 1))
-        gradient = torch.sqrt(dx * dx + dy * dy + 1e-6)
-        features = torch.cat([value, anomaly, delta, gradient], dim=1)
-        return torch.clamp(features, -5.0, 5.0)
+        return build_pwv_features(pwv_input, self.configs)
 
     def forward(self, all_frames, pwv_frames=None, return_aux=False):
         all_frames = all_frames[:, :, :, :, :1]

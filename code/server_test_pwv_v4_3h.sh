@@ -46,6 +46,8 @@ python -u test_pwv_coupled_v2.py \
     --pwv_pixel_min 0 \
     --pwv_pixel_max 255 \
     --pwv_invert \
+    --pwv_tendency_windows "${PWV_TENDENCY_WINDOWS:-}" \
+    --pwv_tendency_mode "${PWV_TENDENCY_MODE:-slope}" \
     --evo_base_channels 32 \
     --pwv_base_channels 24 \
     --fusion_channels "${FUSION_CHANNELS:-32}" \
@@ -60,6 +62,6 @@ python -u test_pwv_coupled_v2.py \
     --psd_lead_minutes "60,120,180" \
     --psd_wavelengths "4,8,16,32,64" \
     --grid_km 1 \
-    --frame_minutes 6 \
+    --frame_minutes "${FRAME_MINUTES:-6}" \
     --horizon_bins "0-1,1-2,2-3" \
     2>&1 | tee "${RUN_ROOT}/logs/test_pwv_v4_3h.log"

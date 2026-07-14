@@ -47,6 +47,9 @@ python -u train_pwv_coupled_v3.py \
     --pwv_pixel_min 0 \
     --pwv_pixel_max 255 \
     --pwv_invert \
+    --frame_minutes "${FRAME_MINUTES:-6}" \
+    --pwv_tendency_windows "${PWV_TENDENCY_WINDOWS:-}" \
+    --pwv_tendency_mode "${PWV_TENDENCY_MODE:-slope}" \
     --disc_channels 32 \
     --evo_base_channels 32 \
     --pwv_base_channels 24 \
