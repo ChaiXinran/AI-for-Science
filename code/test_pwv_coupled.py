@@ -43,6 +43,7 @@ def build_parser():
     parser.add_argument("--img_ch", type=int, default=2)
     parser.add_argument("--model_name", type=str, default="PWVCoupledNowcastNet")
     parser.add_argument("--ngf", type=int, default=32)
+    parser.add_argument("--lead_time_embed_dim", type=int, default=16)
     parser.add_argument("--evo_base_channels", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_workers", type=int, default=2)

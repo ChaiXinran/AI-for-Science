@@ -39,6 +39,7 @@ python -u train_adversarial_custom.py \
     --pixel_min 0 \
     --pixel_max 255 \
     --disc_channels 32 \
+    --lead_time_embed_dim 16 \
     --lambda_forecast 1.0 \
     --lambda_evolution 0.5 \
     --lambda_advected 0.25 \

@@ -6,6 +6,7 @@ from nowcasting.layers.utils import warp, make_grid
 from nowcasting.layers.generation.generative_network import Generative_Encoder, Generative_Decoder
 from nowcasting.layers.evolution.evolution_network import Evolution_Network
 from nowcasting.layers.generation.noise_projector import Noise_Projector
+from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 
 class Net(nn.Module):
     def __init__(self, configs):
@@ -15,6 +16,11 @@ class Net(nn.Module):
         self.intensity_scale = float(getattr(configs, "intensity_scale", 128.0))
 
         self.evo_net = Evolution_Network(self.configs.input_length, self.pred_length, base_c=32)
+        self.lead_time = LeadTimeConditioner(
+            self.pred_length,
+            getattr(configs, "lead_time_embed_dim", 0),
+            targets={"source": 1, "motion": 2},
+        )
         self.gen_enc = Generative_Encoder(self.configs.total_length, base_c=self.configs.ngf)
         self.gen_dec = Generative_Decoder(self.configs)
         self.proj = Noise_Projector(self.configs.ngf, configs)
@@ -36,7 +42,9 @@ class Net(nn.Module):
 
         # Evolution Network
         intensity, motion = self.evo_net(input_frames)
+        intensity = self.lead_time(intensity, "source")
         motion_ = motion.reshape(batch, self.pred_length, 2, height, width)
+        motion_ = self.lead_time(motion_, "motion")
         intensity_ = intensity.reshape(batch, self.pred_length, 1, height, width)
         series = []
         advected_series = []

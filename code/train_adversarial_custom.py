@@ -51,6 +51,7 @@ def build_parser():
     parser.add_argument("--img_ch", type=int, default=2)
     parser.add_argument("--model_name", type=str, default="NowcastNet")
     parser.add_argument("--ngf", type=int, default=32)
+    parser.add_argument("--lead_time_embed_dim", type=int, default=16)
     parser.add_argument("--disc_channels", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=50)

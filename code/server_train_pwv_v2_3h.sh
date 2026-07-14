@@ -49,6 +49,7 @@ python -u train_pwv_coupled_v2.py \
     --disc_channels 32 \
     --evo_base_channels 32 \
     --pwv_base_channels 24 \
+    --lead_time_embed_dim 16 \
     --lambda_forecast 1.0 \
     --lambda_evolution 0.5 \
     --lambda_advected 0.25 \

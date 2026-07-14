@@ -6,6 +6,7 @@ from nowcasting.layers.evolution.evolution_network import Evolution_Network
 from nowcasting.layers.generation.generative_network import Generative_Encoder, Generative_Decoder
 from nowcasting.layers.generation.noise_projector import Noise_Projector
 from nowcasting.layers.utils import make_grid, warp
+from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 
 
 class ConvBlock(nn.Module):
@@ -82,6 +83,10 @@ class PWVCoupledNetV2(nn.Module):
         self.radar_evo_net = Evolution_Network(configs.input_length, self.pred_length, base_c=evo_base_c)
         self.pwv_source_net = LightweightUNet(pwv_channels, self.pred_length, base_channels=pwv_base_c)
         self.coupling_net = LightweightUNet(coupling_channels, self.pred_length, base_channels=pwv_base_c)
+        self.lead_time = LeadTimeConditioner(
+            self.pred_length,
+            getattr(configs, "lead_time_embed_dim", 0),
+        )
 
         self.gen_enc = Generative_Encoder(configs.total_length, base_c=configs.ngf)
         self.gen_dec = Generative_Decoder(configs)
@@ -126,10 +131,13 @@ class PWVCoupledNetV2(nn.Module):
         radar_intensity, motion = self.radar_evo_net(input_frames)
         pwv_intensity = self.pwv_source_net(pwv_features)
         coupling_logits = self.coupling_net(torch.cat([radar_context, pwv_features], dim=1))
+        coupling_logits = self.lead_time(coupling_logits, "gate")
         coupling = torch.sigmoid(coupling_logits)
 
         source = radar_intensity + coupling * pwv_intensity
+        source = self.lead_time(source, "source")
         motion_ = motion.reshape(batch, self.pred_length, 2, height, width)
+        motion_ = self.lead_time(motion_, "motion")
         source_ = source.reshape(batch, self.pred_length, 1, height, width)
         radar_source_ = radar_intensity.reshape(batch, self.pred_length, 1, height, width)
         pwv_source_ = pwv_intensity.reshape(batch, self.pred_length, 1, height, width)

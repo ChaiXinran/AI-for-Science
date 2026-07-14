@@ -51,6 +51,7 @@ python -u train_pwv_coupled_v3.py \
     --evo_base_channels 32 \
     --pwv_base_channels 24 \
     --fusion_channels 32 \
+    --lead_time_embed_dim "${LEAD_TIME_EMBED_DIM:-16}" \
     --lambda_forecast 1.0 \
     --lambda_evolution 0.5 \
     --lambda_advected 0.25 \

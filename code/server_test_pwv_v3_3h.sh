@@ -32,6 +32,7 @@ python -u test_pwv_coupled_v2.py \
     --total_length 39 \
     --img_height 96 \
     --img_width 96 \
+    --lead_time_embed_dim "${LEAD_TIME_EMBED_DIM:-16}" \
     --batch_size "${BATCH_SIZE}" \
     --num_workers "${NUM_WORKERS}" \
     --stride 1 \

@@ -6,6 +6,7 @@ from nowcasting.layers.evolution.evolution_network import Evolution_Network
 from nowcasting.layers.generation.generative_network import Generative_Decoder, Generative_Encoder
 from nowcasting.layers.generation.noise_projector import Noise_Projector
 from nowcasting.layers.utils import make_grid, warp
+from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 from nowcasting.models.nowcastnet_pwv_v2 import ConvBlock, LightweightUNet
 
 
@@ -61,6 +62,10 @@ class PWVCoupledNetV3(nn.Module):
             base_channels=pwv_base_c,
             final_bias=-1.0,
         )
+        self.lead_time = LeadTimeConditioner(
+            self.pred_length,
+            getattr(configs, "lead_time_embed_dim", 0),
+        )
 
         self.gen_enc = Generative_Encoder(configs.total_length, base_c=configs.ngf)
         self.gen_dec = Generative_Decoder(configs)
@@ -110,12 +115,16 @@ class PWVCoupledNetV3(nn.Module):
         radar_intensity, motion = self.radar_evo_net(input_frames)
         gate_input = torch.cat([radar_context, pwv_features, fused_feature], dim=1)
         pwv_intensity = self.pwv_source_net(torch.cat([pwv_features, fused_feature], dim=1))
-        source_coupling = torch.sigmoid(self.source_coupling_net(gate_input))
-        support_gate = torch.sigmoid(self.support_gate_net(gate_input))
+        source_coupling_logits = self.lead_time(self.source_coupling_net(gate_input), "gate")
+        support_gate_logits = self.lead_time(self.support_gate_net(gate_input), "gate")
+        source_coupling = torch.sigmoid(source_coupling_logits)
+        support_gate = torch.sigmoid(support_gate_logits)
 
         pwv_contribution = source_coupling * support_gate * pwv_intensity
         source = radar_intensity + pwv_contribution
+        source = self.lead_time(source, "source")
         motion_ = motion.reshape(batch, self.pred_length, 2, height, width)
+        motion_ = self.lead_time(motion_, "motion")
         source_ = source.reshape(batch, self.pred_length, 1, height, width)
         radar_source_ = radar_intensity.reshape(batch, self.pred_length, 1, height, width)
         pwv_source_ = pwv_intensity.reshape(batch, self.pred_length, 1, height, width)

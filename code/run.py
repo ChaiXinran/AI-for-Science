@@ -31,6 +31,7 @@ parser.add_argument('--pretrained_model', type=str, default='')
 parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--num_save_samples', type=int, default=10)
 parser.add_argument('--ngf', type=int, default=32)
+parser.add_argument('--lead_time_embed_dim', type=int, default=0)
 parser.add_argument('--dataset_path', type=str)
 
 args = parser.parse_args()
