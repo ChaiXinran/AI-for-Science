@@ -1,16 +1,19 @@
 import argparse
-import json
-import os
-import random
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
-from nowcasting.data_provider.custom_png import PngSequenceDataset
-from nowcasting.models import nowcastnet
+from nowcasting.experiments.common import (
+    add_model_runtime_args,
+    build_generator,
+    load_generator_weights,
+    make_png_dataloader,
+    safe_torch_save,
+    save_json_args,
+    seed_everything,
+)
+from nowcasting.losses import fourier_amplitude_and_correlation_loss
 
 
 def build_parser():
@@ -40,54 +43,39 @@ def build_parser():
     parser.add_argument("--pixel_max", type=float, default=255.0)
     parser.add_argument("--no_invert", action="store_true")
     parser.add_argument("--loss", choices=["l1", "mse", "huber"], default="l1")
+    parser.add_argument("--lambda_facl", type=float, default=0.0)
+    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--resume", type=str, default="")
+    parser.add_argument("--init_generator", type=str, default="")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     return parser
 
 
-def seed_everything(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-
 def make_dataloader(args, split, max_samples):
-    dataset = PngSequenceDataset(
-        data_root=args.data_root,
-        split=split,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        input_length=args.input_length,
-        total_length=args.total_length,
-        img_height=args.img_height,
-        img_width=args.img_width,
-        stride=args.stride,
-        max_samples=max_samples,
-        intensity_scale=args.intensity_scale,
-        pixel_min=args.pixel_min,
-        pixel_max=args.pixel_max,
-        invert=not args.no_invert,
-    )
-    return DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=(split == "train"),
-        num_workers=args.num_workers,
-        drop_last=(split == "train"),
-        pin_memory=True,
-    )
+    return make_png_dataloader(args, split, max_samples)
 
 
-def compute_loss(pred, target, name):
+def compute_loss(pred, target, name, args):
     pred = pred[..., 0]
     if name == "mse":
-        return F.mse_loss(pred, target)
-    if name == "huber":
-        return F.smooth_l1_loss(pred, target)
-    return F.l1_loss(pred, target)
+        base_loss = F.mse_loss(pred, target)
+    elif name == "huber":
+        base_loss = F.smooth_l1_loss(pred, target)
+    else:
+        base_loss = F.l1_loss(pred, target)
+    if args.lambda_facl <= 0:
+        return base_loss
+    scale = max(float(args.intensity_scale), 1.0)
+    pred_norm = torch.clamp(pred / scale, 0.0, 1.0)
+    target_norm = torch.clamp(target / scale, 0.0, 1.0)
+    facl_loss = fourier_amplitude_and_correlation_loss(
+        pred_norm,
+        target_norm,
+        fal_probability=args.facl_fal_probability,
+    )
+    return base_loss + args.lambda_facl * facl_loss
 
 
 def run_epoch(model, loader, optimizer, args, train):
@@ -101,7 +89,7 @@ def run_epoch(model, loader, optimizer, args, train):
 
         with torch.set_grad_enabled(train):
             pred = model(frames)
-            loss = compute_loss(pred, target, args.loss)
+            loss = compute_loss(pred, target, args.loss, args)
 
         if train:
             optimizer.zero_grad(set_to_none=True)
@@ -131,43 +119,30 @@ def save_checkpoint(path, model, optimizer, epoch, val_loss, args):
     safe_torch_save(payload, path)
 
 
-def safe_torch_save(obj, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.name + ".tmp")
-    if tmp_path.exists():
-        tmp_path.unlink()
-    torch.save(obj, tmp_path)
-    os.replace(tmp_path, path)
-
-
 def main():
-    args = build_parser().parse_args()
-    args.evo_ic = args.total_length - args.input_length
-    args.gen_oc = args.total_length - args.input_length
-    args.ic_feature = args.ngf * 10
+    args = add_model_runtime_args(build_parser().parse_args())
 
     seed_everything(args.seed)
     save_dir = Path(args.save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / "train_args.json", "w", encoding="utf-8") as f:
-        json.dump(vars(args), f, indent=2, ensure_ascii=False)
+    save_json_args(args, save_dir)
 
     print("Building datasets...", flush=True)
     train_loader = make_dataloader(args, "train", args.max_train_samples)
     val_loader = make_dataloader(args, "val", args.max_val_samples)
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
-    print("Initializing NowcastNet on {}".format(args.device), flush=True)
-    model = nowcastnet.Net(args).to(args.device)
+    print("Initializing {} on {}".format(args.model_name, args.device), flush=True)
+    model = build_generator(args)
+    if args.init_generator:
+        load_generator_weights(model, args.init_generator, args.device)
+        print("initialized generator from {}".format(args.init_generator), flush=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     start_epoch = 1
     best_val = float("inf")
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=args.device)
-        state = checkpoint.get("model", checkpoint)
-        model.load_state_dict(state)
+        model.load_state_dict(checkpoint.get("model", checkpoint))
         if "optimizer" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer"])
         start_epoch = int(checkpoint.get("epoch", 0)) + 1

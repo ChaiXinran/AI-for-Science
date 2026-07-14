@@ -1,18 +1,23 @@
 import argparse
-import json
 from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
-from nowcasting.data_provider.custom_png import PngSequenceDataset
-from nowcasting.models.nowcastnet_pwv_v2 import PWVCoupledNetV2
+from nowcasting.experiments.common import (
+    add_model_runtime_args as add_model_args,
+    build_generator,
+    load_generator_weights,
+    make_png_dataloader,
+    save_adversarial_checkpoint,
+    save_json_args,
+)
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
     discriminator_sequence,
+    facl_reconstruction_loss,
     make_grad_scaler,
     motion_regularization,
     pooled_l1,
@@ -71,51 +76,19 @@ def build_parser():
     parser.add_argument("--lambda_align", type=float, default=0.05)
     parser.add_argument("--lambda_shuffle", type=float, default=0.05)
     parser.add_argument("--shuffle_margin", type=float, default=0.02)
+    parser.add_argument("--lambda_facl", type=float, default=0.0)
+    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
+    parser.add_argument("--init_generator", type=str, default="")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     return parser
 
 
-def add_model_args(args):
-    args.evo_ic = args.total_length - args.input_length
-    args.gen_oc = args.total_length - args.input_length
-    args.ic_feature = args.ngf * 10
-    return args
-
-
 def make_dataloader(args, split, max_samples):
-    dataset = PngSequenceDataset(
-        data_root=args.data_root,
-        pwv_root=args.pwv_root,
-        split=split,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        input_length=args.input_length,
-        total_length=args.total_length,
-        img_height=args.img_height,
-        img_width=args.img_width,
-        stride=args.stride,
-        max_samples=max_samples,
-        intensity_scale=args.intensity_scale,
-        pixel_min=args.pixel_min,
-        pixel_max=args.pixel_max,
-        invert=not args.no_invert,
-        pwv_intensity_scale=args.pwv_intensity_scale,
-        pwv_pixel_min=args.pwv_pixel_min,
-        pwv_pixel_max=args.pwv_pixel_max,
-        pwv_invert=args.pwv_invert,
-    )
-    return DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=(split == "train"),
-        num_workers=args.num_workers,
-        drop_last=(split == "train"),
-        pin_memory=True,
-    )
+    return make_png_dataloader(args, split, max_samples)
 
 
 def coupling_smoothness(coupling):
@@ -185,6 +158,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     coupling_l1 = coupling.mean()
     align_loss = coupling_alignment_loss(coupling, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
+    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -197,6 +171,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         + args.lambda_coupling_l1 * coupling_l1
         + args.lambda_align * align_loss
         + args.lambda_shuffle * shuffle_loss
+        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -210,6 +185,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "c_mean": coupling_l1.detach(),
         "c_align": align_loss.detach(),
         "pwv_shuffle": shuffle_loss.detach(),
+        "facl": facl_loss.detach(),
     }
     return total, parts
 
@@ -292,18 +268,7 @@ def validate(generator, loader, args):
 
 
 def save_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args):
-    safe_torch_save(
-        {
-            "model": generator.state_dict(),
-            "discriminator": discriminator.state_dict(),
-            "optimizer_g": opt_g.state_dict(),
-            "optimizer_d": opt_d.state_dict(),
-            "epoch": epoch,
-            "val_loss": val_loss,
-            "args": vars(args),
-        },
-        path,
-    )
+    save_adversarial_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args)
 
 
 def main():
@@ -314,16 +279,17 @@ def main():
     seed_everything(args.seed)
 
     save_dir = Path(args.save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
     Path(args.readme_ckpt).parent.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / "train_args.json", "w", encoding="utf-8") as f:
-        json.dump(vars(args), f, indent=2, ensure_ascii=False)
+    save_json_args(args, save_dir)
 
     train_loader = make_dataloader(args, "train", args.max_train_samples)
     val_loader = make_dataloader(args, "val", args.max_val_samples)
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
-    generator = PWVCoupledNetV2(args).to(args.device)
+    generator = build_generator(args)
+    if args.init_generator:
+        load_generator_weights(generator, args.init_generator, args.device)
+        print("initialized generator from {}".format(args.init_generator), flush=True)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
     opt_g = torch.optim.Adam((p for p in generator.parameters() if p.requires_grad), lr=args.lr_g, betas=(args.beta1, args.beta2))
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))

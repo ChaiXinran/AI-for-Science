@@ -1,17 +1,21 @@
 import argparse
 import csv
-import json
-import os
-import random
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
-from nowcasting.data_provider.custom_png import PngSequenceDataset
-from nowcasting.models import nowcastnet
+from nowcasting.experiments.common import (
+    add_model_runtime_args as add_model_args,
+    build_generator,
+    load_generator_weights,
+    make_png_dataloader,
+    safe_torch_save,
+    save_adversarial_checkpoint,
+    save_json_args,
+    seed_everything,
+)
+from nowcasting.losses import fourier_amplitude_and_correlation_loss
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 
 try:
@@ -71,53 +75,19 @@ def build_parser():
     parser.add_argument("--lambda_motion", type=float, default=0.02)
     parser.add_argument("--lambda_pool", type=float, default=0.2)
     parser.add_argument("--lambda_adv", type=float, default=0.01)
+    parser.add_argument("--lambda_facl", type=float, default=0.0)
+    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
+    parser.add_argument("--init_generator", type=str, default="")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     return parser
 
 
-def seed_everything(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-
-def add_model_args(args):
-    args.evo_ic = args.total_length - args.input_length
-    args.gen_oc = args.total_length - args.input_length
-    args.ic_feature = args.ngf * 10
-    return args
-
-
 def make_dataloader(args, split, max_samples):
-    dataset = PngSequenceDataset(
-        data_root=args.data_root,
-        split=split,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        input_length=args.input_length,
-        total_length=args.total_length,
-        img_height=args.img_height,
-        img_width=args.img_width,
-        stride=args.stride,
-        max_samples=max_samples,
-        intensity_scale=args.intensity_scale,
-        pixel_min=args.pixel_min,
-        pixel_max=args.pixel_max,
-        invert=not args.no_invert,
-    )
-    return DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=(split == "train"),
-        num_workers=args.num_workers,
-        drop_last=(split == "train"),
-        pin_memory=True,
-    )
+    return make_png_dataloader(args, split, max_samples)
 
 
 def weighted_l1(pred, target, intensity_scale):
@@ -151,6 +121,18 @@ def discriminator_sequence(seq, intensity_scale):
     return torch.clamp(seq / max(float(intensity_scale), 1.0), 0.0, 1.0)
 
 
+def facl_reconstruction_loss(pred, target, args):
+    if getattr(args, "lambda_facl", 0.0) <= 0:
+        return target.new_tensor(0.0)
+    pred_norm = discriminator_sequence(pred, args.intensity_scale)
+    target_norm = discriminator_sequence(target, args.intensity_scale)
+    return fourier_amplitude_and_correlation_loss(
+        pred_norm,
+        target_norm,
+        fal_probability=getattr(args, "facl_fal_probability", 0.5),
+    )
+
+
 def generator_losses(aux, target, discriminator, args):
     pred = aux["prediction"][..., 0]
     evo = aux["evolution"] * args.intensity_scale
@@ -163,6 +145,7 @@ def generator_losses(aux, target, discriminator, args):
     pool_loss = pooled_l1(pred, target)
     fake_logits = discriminator(discriminator_sequence(pred, args.intensity_scale))
     adv_loss = F.binary_cross_entropy_with_logits(fake_logits, torch.ones_like(fake_logits))
+    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -171,6 +154,7 @@ def generator_losses(aux, target, discriminator, args):
         + args.lambda_motion * motion_loss
         + args.lambda_pool * pool_loss
         + args.lambda_adv * adv_loss
+        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -180,6 +164,7 @@ def generator_losses(aux, target, discriminator, args):
         "motion": motion_loss.detach(),
         "pool": pool_loss.detach(),
         "g_adv": adv_loss.detach(),
+        "facl": facl_loss.detach(),
     }
     return total, parts
 
@@ -253,28 +238,7 @@ def validate(generator, loader, args):
 
 
 def save_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args):
-    safe_torch_save(
-        {
-            "model": generator.state_dict(),
-            "discriminator": discriminator.state_dict(),
-            "optimizer_g": opt_g.state_dict(),
-            "optimizer_d": opt_d.state_dict(),
-            "epoch": epoch,
-            "val_loss": val_loss,
-            "args": vars(args),
-        },
-        path,
-    )
-
-
-def safe_torch_save(obj, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.name + ".tmp")
-    if tmp_path.exists():
-        tmp_path.unlink()
-    torch.save(obj, tmp_path)
-    os.replace(tmp_path, path)
+    save_adversarial_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args)
 
 
 def append_epoch_log(path, epoch, val_loss, metrics):
@@ -329,16 +293,17 @@ def main():
     seed_everything(args.seed)
 
     save_dir = Path(args.save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
     Path(args.readme_ckpt).parent.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / "train_args.json", "w", encoding="utf-8") as f:
-        json.dump(vars(args), f, indent=2, ensure_ascii=False)
+    save_json_args(args, save_dir)
 
     train_loader = make_dataloader(args, "train", args.max_train_samples)
     val_loader = make_dataloader(args, "val", args.max_val_samples)
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
-    generator = nowcastnet.Net(args).to(args.device)
+    generator = build_generator(args)
+    if args.init_generator:
+        load_generator_weights(generator, args.init_generator, args.device)
+        print("initialized generator from {}".format(args.init_generator), flush=True)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
     opt_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g, betas=(args.beta1, args.beta2))
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))

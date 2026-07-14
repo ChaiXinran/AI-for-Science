@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
 
-from nowcasting.data_provider.custom_png import PngSequenceDataset
-from nowcasting.models.nowcastnet_pwv_v2 import PWVCoupledNetV2
-from nowcasting.models.nowcastnet_pwv_v3 import PWVCoupledNetV3
+from nowcasting.experiments.common import (
+    add_model_runtime_args as add_model_args,
+    build_generator,
+    load_model_state,
+    make_png_dataloader,
+)
 from test_custom import (
     average_neighborhood_score,
     finalize_event_metrics,
@@ -76,18 +78,7 @@ def build_parser():
     return parser
 
 
-def add_model_args(args):
-    args.evo_ic = args.total_length - args.input_length
-    args.gen_oc = args.total_length - args.input_length
-    args.ic_feature = args.ngf * 10
-    return args
-
-
-def load_state(path, device):
-    checkpoint = torch.load(path, map_location=device)
-    if isinstance(checkpoint, dict) and "model" in checkpoint:
-        return checkpoint["model"]
-    return checkpoint
+load_state = load_model_state
 
 
 def main():
@@ -95,31 +86,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = PngSequenceDataset(
-        data_root=args.data_root,
-        pwv_root=args.pwv_root,
-        split=args.split,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        input_length=args.input_length,
-        total_length=args.total_length,
-        img_height=args.img_height,
-        img_width=args.img_width,
-        stride=args.stride,
-        max_samples=args.max_samples,
-        intensity_scale=args.intensity_scale,
-        pixel_min=args.pixel_min,
-        pixel_max=args.pixel_max,
-        invert=not args.no_invert,
-        pwv_intensity_scale=args.pwv_intensity_scale,
-        pwv_pixel_min=args.pwv_pixel_min,
-        pwv_pixel_max=args.pwv_pixel_max,
-        pwv_invert=args.pwv_invert,
-    )
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, drop_last=False, pin_memory=True)
+    loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
 
-    model_cls = PWVCoupledNetV3 if args.model_name == "PWVCoupledNowcastNetV3" else PWVCoupledNetV2
-    model = model_cls(args).to(args.device)
+    model = build_generator(args)
     model.load_state_dict(load_state(args.checkpoint, args.device))
     model.eval()
 
@@ -209,7 +178,7 @@ def main():
     metrics = {
         "model": finalize_scalar_totals(model_totals),
         "persistence": finalize_scalar_totals(persistence_totals),
-        "samples": len(dataset),
+        "samples": len(loader.dataset),
         "saved_samples": saved,
         "coupling_mean": coupling_mean,
         "coupling_std": max(coupling_var, 0.0) ** 0.5,

@@ -1,23 +1,12 @@
-import os
 import torch
-import torch.nn as nn
-from nowcasting.models import nowcastnet
+from nowcasting.models.registry import build_model
 
 class Model(object):
     def __init__(self, configs):
         self.configs = configs
-        networks_map = {
-            'NowcastNet': nowcastnet.Net,
-        }
         self.data_frame = []
-        
-        if configs.model_name in networks_map:
-            Network = networks_map[configs.model_name]
-            self.network = Network(configs).to(configs.device)
-            self.test_load()
-
-        else:
-            raise ValueError('Name of network unknown %s' % configs.model_name)
+        self.network = build_model(configs).to(configs.device)
+        self.test_load()
 
     def test_load(self):
         stats = torch.load(self.configs.pretrained_model, map_location=self.configs.device)

@@ -1,15 +1,20 @@
-import json
 from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 
-from nowcasting.models.nowcastnet_pwv_v3 import PWVCoupledNetV3
+from nowcasting.experiments.common import (
+    build_generator,
+    load_generator_weights,
+    save_adversarial_checkpoint,
+    save_json_args,
+)
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
     discriminator_sequence,
+    facl_reconstruction_loss,
     make_grad_scaler,
     motion_regularization,
     pooled_l1,
@@ -87,6 +92,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
     fa_loss = false_alarm_loss(pred, target, frames, pwv, args)
     dry_support_loss = support_dry_loss(support_gate, target, frames, pwv, args)
+    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -102,6 +108,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         + args.lambda_shuffle * shuffle_loss
         + args.lambda_false_alarm * fa_loss
         + args.lambda_support_dry * dry_support_loss
+        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -118,6 +125,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "pwv_shuffle": shuffle_loss.detach(),
         "false_alarm": fa_loss.detach(),
         "support_dry": dry_support_loss.detach(),
+        "facl": facl_loss.detach(),
     }
     return total, parts
 
@@ -200,18 +208,7 @@ def validate(generator, loader, args):
 
 
 def save_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args):
-    safe_torch_save(
-        {
-            "model": generator.state_dict(),
-            "discriminator": discriminator.state_dict(),
-            "optimizer_g": opt_g.state_dict(),
-            "optimizer_d": opt_d.state_dict(),
-            "epoch": epoch,
-            "val_loss": val_loss,
-            "args": vars(args),
-        },
-        path,
-    )
+    save_adversarial_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args)
 
 
 def main():
@@ -222,16 +219,17 @@ def main():
     seed_everything(args.seed)
 
     save_dir = Path(args.save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
     Path(args.readme_ckpt).parent.mkdir(parents=True, exist_ok=True)
-    with open(save_dir / "train_args.json", "w", encoding="utf-8") as f:
-        json.dump(vars(args), f, indent=2, ensure_ascii=False)
+    save_json_args(args, save_dir)
 
     train_loader = make_dataloader(args, "train", args.max_train_samples)
     val_loader = make_dataloader(args, "val", args.max_val_samples)
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
-    generator = PWVCoupledNetV3(args).to(args.device)
+    generator = build_generator(args)
+    if args.init_generator:
+        load_generator_weights(generator, args.init_generator, args.device)
+        print("initialized generator from {}".format(args.init_generator), flush=True)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
     opt_g = torch.optim.Adam((p for p in generator.parameters() if p.requires_grad), lr=args.lr_g, betas=(args.beta1, args.beta2))
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))

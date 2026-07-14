@@ -5,15 +5,18 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader
 
 try:
     import cv2
 except ImportError:
     cv2 = None
 
-from nowcasting.data_provider.custom_png import PngSequenceDataset
-from nowcasting.models import nowcastnet
+from nowcasting.experiments.common import (
+    add_model_runtime_args,
+    build_generator,
+    load_model_state,
+    make_png_dataloader,
+)
 
 
 def build_parser():
@@ -52,11 +55,7 @@ def build_parser():
     return parser
 
 
-def load_state(path, device):
-    checkpoint = torch.load(path, map_location=device)
-    if isinstance(checkpoint, dict) and "model" in checkpoint:
-        return checkpoint["model"]
-    return checkpoint
+load_state = load_model_state
 
 
 def parse_thresholds(text):
@@ -318,40 +317,14 @@ def finalize_psd_metrics(psd_totals, wavelengths, grid_km):
 
 
 def main():
-    args = build_parser().parse_args()
-    args.evo_ic = args.total_length - args.input_length
-    args.gen_oc = args.total_length - args.input_length
-    args.ic_feature = args.ngf * 10
+    args = add_model_runtime_args(build_parser().parse_args())
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = PngSequenceDataset(
-        data_root=args.data_root,
-        split=args.split,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        input_length=args.input_length,
-        total_length=args.total_length,
-        img_height=args.img_height,
-        img_width=args.img_width,
-        stride=args.stride,
-        max_samples=args.max_samples,
-        intensity_scale=args.intensity_scale,
-        pixel_min=args.pixel_min,
-        pixel_max=args.pixel_max,
-        invert=not args.no_invert,
-    )
-    loader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        drop_last=False,
-        pin_memory=True,
-    )
+    loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
 
-    model = nowcastnet.Net(args).to(args.device)
+    model = build_generator(args)
     model.load_state_dict(load_state(args.checkpoint, args.device))
     model.eval()
 
@@ -412,7 +385,7 @@ def main():
     metrics = {
         "model": finalize_scalar_totals(model_totals),
         "persistence": finalize_scalar_totals(persistence_totals),
-        "samples": len(dataset),
+        "samples": len(loader.dataset),
         "saved_samples": saved,
         "units": {
             "prediction": "mm/h",
