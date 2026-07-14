@@ -14,12 +14,12 @@ EXPERIMENTS = {
     "Radar-only": {
         "metrics": "results/radar_3h/metrics.json",
         "sample": "results/radar_3h/sample_0000",
-        "required": True,
+        "required": False,
     },
     "PWV V2": {
         "metrics": "results/pwv_v2_3h/metrics.json",
         "sample": "results/pwv_v2_3h/sample_0000",
-        "required": True,
+        "required": False,
     },
     "PWV V3": {
         "metrics": "results/pwv_v3_3h/metrics.json",
@@ -52,7 +52,20 @@ def load_metrics(run_root):
             missing.append(str(path))
     if missing:
         raise SystemExit("Missing metrics files:\n" + "\n".join(missing))
+    if not metrics:
+        expected = [str(run_root / cfg["metrics"]) for cfg in EXPERIMENTS.values()]
+        raise SystemExit("No metrics files found. Expected one or more of:\n" + "\n".join(expected))
     return metrics
+
+
+def reference_name(metrics):
+    if "Radar-only" in metrics:
+        return "Radar-only"
+    return next(iter(metrics.keys()))
+
+
+def reference_data(metrics):
+    return metrics[reference_name(metrics)]
 
 
 def lead_series(data, group, metric):
@@ -83,7 +96,7 @@ def draw_horizon_band(ax):
 def save_lead_curves(metrics, out_dir):
     for metric in ("mae", "rmse"):
         fig, ax = plt.subplots(figsize=(9.2, 5.0), dpi=180)
-        x_p, y_p = lead_series(metrics["Radar-only"], "persistence", metric)
+        x_p, y_p = lead_series(reference_data(metrics), "persistence", metric)
         ax.plot(x_p, y_p, color="0.25", linewidth=2.4, label="Persistence")
         for name, data in metrics.items():
             x, y = lead_series(data, "model", metric)
@@ -100,12 +113,13 @@ def save_lead_curves(metrics, out_dir):
 
 
 def save_horizon_bars(metrics, out_dir):
-    horizons = list(metrics["Radar-only"]["horizon_metrics"]["model"].keys())
+    ref = reference_data(metrics)
+    horizons = list(ref["horizon_metrics"]["model"].keys())
     labels = ["Persistence"] + list(metrics.keys())
     for metric in ("mae", "rmse"):
         values = {
             "Persistence": [
-                metrics["Radar-only"]["horizon_metrics"]["persistence"][h][metric]
+                ref["horizon_metrics"]["persistence"][h][metric]
                 for h in horizons
             ]
         }
@@ -138,8 +152,9 @@ def save_horizon_bars(metrics, out_dir):
 
 
 def save_threshold_metrics(metrics, out_dir):
-    thresholds = metrics["Radar-only"]["thresholds"]
-    series = {"Persistence": metrics["Radar-only"]["event_metrics"]["persistence"]}
+    ref = reference_data(metrics)
+    thresholds = ref["thresholds"]
+    series = {"Persistence": ref["event_metrics"]["persistence"]}
     for name, data in metrics.items():
         series[name] = data["event_metrics"]["model"]
 
@@ -170,10 +185,11 @@ def save_threshold_metrics(metrics, out_dir):
 
 
 def save_neighborhood_csi(metrics, out_dir):
-    if "neighborhood_event_metrics" not in metrics["Radar-only"]:
+    ref = reference_data(metrics)
+    if "neighborhood_event_metrics" not in ref:
         return
-    thresholds = metrics["Radar-only"]["neighborhood_thresholds"]
-    series = {"Persistence": metrics["Radar-only"]["neighborhood_event_metrics"]["persistence"]}
+    thresholds = ref["neighborhood_thresholds"]
+    series = {"Persistence": ref["neighborhood_event_metrics"]["persistence"]}
     for name, data in metrics.items():
         series[name] = data["neighborhood_event_metrics"]["model"]
 
@@ -207,15 +223,16 @@ def save_neighborhood_csi(metrics, out_dir):
 
 
 def save_psd_plots(metrics, out_dir):
-    if "psd" not in metrics["Radar-only"]:
+    ref = reference_data(metrics)
+    if "psd" not in ref:
         return
-    wavelengths = metrics["Radar-only"]["psd"]["wavelengths"]
-    lead_keys = list(metrics["Radar-only"]["psd"]["lead_minutes"].keys())
+    wavelengths = ref["psd"]["wavelengths"]
+    lead_keys = list(ref["psd"]["lead_minutes"].keys())
     for lead in lead_keys:
         fig, ax = plt.subplots(figsize=(8.4, 5.0), dpi=180)
-        target = metrics["Radar-only"]["psd"]["lead_minutes"][lead]["target"]
+        target = ref["psd"]["lead_minutes"][lead]["target"]
         ax.plot(wavelengths, target, color="0.15", linewidth=2.6, label="Ground truth")
-        persistence = metrics["Radar-only"]["psd"]["lead_minutes"][lead]["persistence"]
+        persistence = ref["psd"]["lead_minutes"][lead]["persistence"]
         ax.plot(wavelengths, persistence, color="0.45", linewidth=2.0, linestyle="--", label="Persistence")
         for name, data in metrics.items():
             values = data["psd"]["lead_minutes"][lead]["model"]
@@ -235,9 +252,10 @@ def save_psd_plots(metrics, out_dir):
 
 
 def save_psd_error(metrics, out_dir):
-    if "psd" not in metrics["Radar-only"]:
+    ref = reference_data(metrics)
+    if "psd" not in ref:
         return
-    lead_keys = list(metrics["Radar-only"]["psd"]["lead_minutes"].keys())
+    lead_keys = list(ref["psd"]["lead_minutes"].keys())
     labels = ["Persistence"] + list(metrics.keys())
     x = np.arange(len(lead_keys))
     width = min(0.24, 0.8 / max(len(labels), 1))
@@ -245,7 +263,7 @@ def save_psd_error(metrics, out_dir):
     fig, ax = plt.subplots(figsize=(8.6, 4.8), dpi=180)
     values = {
         "Persistence": [
-            float(np.mean(metrics["Radar-only"]["psd"]["lead_minutes"][lead]["persistence_log_rmse"]))
+            float(np.mean(ref["psd"]["lead_minutes"][lead]["persistence_log_rmse"]))
             for lead in lead_keys
         ]
     }
@@ -282,10 +300,11 @@ def colorize_gray(path, size=(96, 96), cmap="magma", stretch=False):
 
 
 def save_sample_grid(run_root, out_dir):
-    radar = run_root / EXPERIMENTS["Radar-only"]["sample"]
-    pwv = run_root / EXPERIMENTS["PWV V2"]["sample"]
-    if not radar.exists() or not pwv.exists():
+    sample_paths = {name: run_root / cfg["sample"] for name, cfg in EXPERIMENTS.items()}
+    existing = {name: path for name, path in sample_paths.items() if path.exists()}
+    if not existing:
         return
+    reference_sample = existing.get("Radar-only") or next(iter(existing.values()))
 
     columns = [
         ("t+1\n0.1h", 0),
@@ -295,20 +314,18 @@ def save_sample_grid(run_root, out_dir):
         ("t+30\n3.0h", 29),
     ]
     rows = [
-        ("Ground truth", lambda i: open_rgb(radar / f"gt_{i:02d}.png")),
-        ("Persistence", lambda i: open_rgb(radar / f"ps_{i:02d}.png")),
-        ("Radar-only", lambda i: open_rgb(radar / f"pd_{i:02d}.png")),
-        ("PWV V2", lambda i: open_rgb(pwv / f"pd_{i:02d}.png")),
-        ("Coupling C", lambda i: colorize_gray(pwv / f"c_{i:02d}.png", cmap="magma")),
+        ("Ground truth", lambda i: open_rgb(reference_sample / f"gt_{i:02d}.png")),
+        ("Persistence", lambda i: open_rgb(reference_sample / f"ps_{i:02d}.png")),
     ]
-    pwv_v3 = run_root / EXPERIMENTS["PWV V3"]["sample"]
-    if pwv_v3.exists():
-        rows.insert(4, ("PWV V3", lambda i: open_rgb(pwv_v3 / f"pd_{i:02d}.png")))
-        rows.insert(6, ("Coupling C V3", lambda i: colorize_gray(pwv_v3 / f"c_{i:02d}.png", cmap="magma")))
-        if (pwv_v3 / "s_00.png").exists():
-            rows.insert(7, ("Support S V3", lambda i: colorize_gray(pwv_v3 / f"s_{i:02d}.png", cmap="magma")))
-    if (pwv / "pwv_00.png").exists():
-        rows.append(("PWV input", lambda i: colorize_gray(pwv / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
+    for name, path in existing.items():
+        rows.append((name, lambda i, p=path: open_rgb(p / f"pd_{i:02d}.png")))
+        if (path / "c_00.png").exists():
+            rows.append((f"Coupling {name}", lambda i, p=path: colorize_gray(p / f"c_{i:02d}.png", cmap="magma")))
+        if (path / "s_00.png").exists():
+            rows.append((f"Support {name}", lambda i, p=path: colorize_gray(p / f"s_{i:02d}.png", cmap="magma")))
+    pwv_sample = existing.get("PWV V2") or existing.get("PWV V3")
+    if pwv_sample is not None and (pwv_sample / "pwv_00.png").exists():
+        rows.append(("PWV input", lambda i, p=pwv_sample: colorize_gray(p / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
     cell_w, cell_h = 96, 96
     label_w, top_h = 128, 42
@@ -328,13 +345,14 @@ def save_sample_grid(run_root, out_dir):
 
 
 def summarize(metrics, out_dir):
-    radar = metrics["Radar-only"]
-    pwv = metrics["PWV V2"]
+    ref = reference_data(metrics)
+    radar = metrics.get("Radar-only", ref)
+    pwv = metrics.get("PWV V2", {})
     summary = {
         "overall": {
-            "persistence": radar["persistence"],
-            "radar_only": radar["model"],
-            "pwv_v2": pwv["model"],
+            "persistence": ref["persistence"],
+            "radar_only": metrics.get("Radar-only", {}).get("model"),
+            "pwv_v2": pwv.get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("model"),
             "pwv_coupling_mean": pwv.get("coupling_mean"),
             "pwv_coupling_std": pwv.get("coupling_std"),
@@ -342,26 +360,26 @@ def summarize(metrics, out_dir):
             "pwv_v3_support_mean": metrics.get("PWV V3", {}).get("support_mean"),
         },
         "horizon_metrics": {
-            "persistence": radar["horizon_metrics"]["persistence"],
-            "radar_only": radar["horizon_metrics"]["model"],
-            "pwv_v2": pwv["horizon_metrics"]["model"],
+            "persistence": ref["horizon_metrics"]["persistence"],
+            "radar_only": metrics.get("Radar-only", {}).get("horizon_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("horizon_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("horizon_metrics", {}).get("model"),
         },
         "event_metrics": {
-            "persistence": radar["event_metrics"]["persistence"],
-            "radar_only": radar["event_metrics"]["model"],
-            "pwv_v2": pwv["event_metrics"]["model"],
+            "persistence": ref["event_metrics"]["persistence"],
+            "radar_only": metrics.get("Radar-only", {}).get("event_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("event_metrics", {}).get("model"),
         },
         "neighborhood_event_metrics": {
-            "persistence": radar.get("neighborhood_event_metrics", {}).get("persistence"),
-            "radar_only": radar.get("neighborhood_event_metrics", {}).get("model"),
+            "persistence": ref.get("neighborhood_event_metrics", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_event_metrics", {}).get("model"),
         },
         "neighborhood_score": {
-            "persistence": radar.get("neighborhood_score", {}).get("persistence"),
-            "radar_only": radar.get("neighborhood_score", {}).get("model"),
+            "persistence": ref.get("neighborhood_score", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("neighborhood_score", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_score", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_score", {}).get("model"),
         },
