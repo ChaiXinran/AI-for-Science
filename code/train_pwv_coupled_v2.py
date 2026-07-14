@@ -17,7 +17,6 @@ from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
     discriminator_sequence,
-    facl_reconstruction_loss,
     make_grad_scaler,
     motion_regularization,
     pooled_l1,
@@ -76,8 +75,6 @@ def build_parser():
     parser.add_argument("--lambda_align", type=float, default=0.05)
     parser.add_argument("--lambda_shuffle", type=float, default=0.05)
     parser.add_argument("--shuffle_margin", type=float, default=0.02)
-    parser.add_argument("--lambda_facl", type=float, default=0.0)
-    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
@@ -158,7 +155,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     coupling_l1 = coupling.mean()
     align_loss = coupling_alignment_loss(coupling, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
-    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -171,7 +167,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         + args.lambda_coupling_l1 * coupling_l1
         + args.lambda_align * align_loss
         + args.lambda_shuffle * shuffle_loss
-        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -185,7 +180,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "c_mean": coupling_l1.detach(),
         "c_align": align_loss.detach(),
         "pwv_shuffle": shuffle_loss.detach(),
-        "facl": facl_loss.detach(),
     }
     return total, parts
 

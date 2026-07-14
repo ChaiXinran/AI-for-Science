@@ -17,7 +17,6 @@ from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
     discriminator_sequence,
-    facl_reconstruction_loss,
     make_grad_scaler,
     motion_regularization,
     pooled_l1,
@@ -72,8 +71,6 @@ def build_parser():
     parser.add_argument("--lambda_adv", type=float, default=0.01)
     parser.add_argument("--lambda_coupling_smooth", type=float, default=0.02)
     parser.add_argument("--lambda_coupling_l1", type=float, default=0.001)
-    parser.add_argument("--lambda_facl", type=float, default=0.0)
-    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
@@ -108,7 +105,6 @@ def generator_losses(aux, target, discriminator, args):
     adv_loss = F.binary_cross_entropy_with_logits(fake_logits, torch.ones_like(fake_logits))
     coupling_smooth = coupling_smoothness(coupling)
     coupling_l1 = coupling.mean()
-    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -119,7 +115,6 @@ def generator_losses(aux, target, discriminator, args):
         + args.lambda_adv * adv_loss
         + args.lambda_coupling_smooth * coupling_smooth
         + args.lambda_coupling_l1 * coupling_l1
-        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -131,7 +126,6 @@ def generator_losses(aux, target, discriminator, args):
         "g_adv": adv_loss.detach(),
         "c_smooth": coupling_smooth.detach(),
         "c_mean": coupling_l1.detach(),
-        "facl": facl_loss.detach(),
     }
     return total, parts
 

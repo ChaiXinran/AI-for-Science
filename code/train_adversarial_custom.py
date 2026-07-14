@@ -15,7 +15,6 @@ from nowcasting.experiments.common import (
     save_json_args,
     seed_everything,
 )
-from nowcasting.losses import fourier_amplitude_and_correlation_loss
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 
 try:
@@ -75,8 +74,6 @@ def build_parser():
     parser.add_argument("--lambda_motion", type=float, default=0.02)
     parser.add_argument("--lambda_pool", type=float, default=0.2)
     parser.add_argument("--lambda_adv", type=float, default=0.01)
-    parser.add_argument("--lambda_facl", type=float, default=0.0)
-    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
@@ -121,18 +118,6 @@ def discriminator_sequence(seq, intensity_scale):
     return torch.clamp(seq / max(float(intensity_scale), 1.0), 0.0, 1.0)
 
 
-def facl_reconstruction_loss(pred, target, args):
-    if getattr(args, "lambda_facl", 0.0) <= 0:
-        return target.new_tensor(0.0)
-    pred_norm = discriminator_sequence(pred, args.intensity_scale)
-    target_norm = discriminator_sequence(target, args.intensity_scale)
-    return fourier_amplitude_and_correlation_loss(
-        pred_norm,
-        target_norm,
-        fal_probability=getattr(args, "facl_fal_probability", 0.5),
-    )
-
-
 def generator_losses(aux, target, discriminator, args):
     pred = aux["prediction"][..., 0]
     evo = aux["evolution"] * args.intensity_scale
@@ -145,7 +130,6 @@ def generator_losses(aux, target, discriminator, args):
     pool_loss = pooled_l1(pred, target)
     fake_logits = discriminator(discriminator_sequence(pred, args.intensity_scale))
     adv_loss = F.binary_cross_entropy_with_logits(fake_logits, torch.ones_like(fake_logits))
-    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -154,7 +138,6 @@ def generator_losses(aux, target, discriminator, args):
         + args.lambda_motion * motion_loss
         + args.lambda_pool * pool_loss
         + args.lambda_adv * adv_loss
-        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -164,7 +147,6 @@ def generator_losses(aux, target, discriminator, args):
         "motion": motion_loss.detach(),
         "pool": pool_loss.detach(),
         "g_adv": adv_loss.detach(),
-        "facl": facl_loss.detach(),
     }
     return total, parts
 

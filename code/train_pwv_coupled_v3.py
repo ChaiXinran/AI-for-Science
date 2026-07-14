@@ -14,7 +14,6 @@ from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
     discriminator_sequence,
-    facl_reconstruction_loss,
     make_grad_scaler,
     motion_regularization,
     pooled_l1,
@@ -92,7 +91,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
     fa_loss = false_alarm_loss(pred, target, frames, pwv, args)
     dry_support_loss = support_dry_loss(support_gate, target, frames, pwv, args)
-    facl_loss = facl_reconstruction_loss(pred, target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -108,7 +106,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         + args.lambda_shuffle * shuffle_loss
         + args.lambda_false_alarm * fa_loss
         + args.lambda_support_dry * dry_support_loss
-        + args.lambda_facl * facl_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -125,7 +122,6 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "pwv_shuffle": shuffle_loss.detach(),
         "false_alarm": fa_loss.detach(),
         "support_dry": dry_support_loss.detach(),
-        "facl": facl_loss.detach(),
     }
     return total, parts
 

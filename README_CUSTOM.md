@@ -310,37 +310,6 @@ and logging because those define the experiment, but they now use the same
 DataLoader factory, model registry, runtime shape fields, JSON arg saving, and
 checkpoint writer.
 
-## FACL Fine-Tuning
-
-Fourier Amplitude and Correlation Loss (FACL) can be enabled without changing
-the model architecture:
-
-```text
---lambda_facl 0.05
---facl_fal_probability 0.5
-```
-
-The default `--lambda_facl 0.0` keeps previous experiments unchanged. To test
-FACL on an existing run, prefer `--init_generator /path/to/model.ckpt` instead
-of `--resume`. `--init_generator` loads only the generator weights and starts a
-new optimizer, which is usually better for short fine-tuning with a new loss.
-Keep all architecture and data-shape arguments identical to the original
-checkpoint, then train for a few epochs with a smaller learning rate.
-
-Example for a 3-hour PWV V3 run:
-
-```bash
-python -u train_pwv_coupled_v3.py \
-  --init_generator /root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v3_3h_model.ckpt \
-  --save_dir /root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v3_3h_facl_ft \
-  --readme_ckpt /root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v3_3h_facl_model.ckpt \
-  --lambda_facl 0.05 \
-  --facl_fal_probability 0.5 \
-  --lr_g 1e-5 \
-  --lr_d 4e-5 \
-  --epochs 5
-```
-
 ## Notes
 
 This implementation follows the NowcastNet paper structure at an engineering level: generator, temporal discriminator, adversarial loss, evolution accumulation loss, motion regularization, and spatial pooling loss. It is not the original authors' full private training pipeline, because the released capsule only contained inference code.

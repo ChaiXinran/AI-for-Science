@@ -13,7 +13,6 @@ from nowcasting.experiments.common import (
     save_json_args,
     seed_everything,
 )
-from nowcasting.losses import fourier_amplitude_and_correlation_loss
 
 
 def build_parser():
@@ -43,8 +42,6 @@ def build_parser():
     parser.add_argument("--pixel_max", type=float, default=255.0)
     parser.add_argument("--no_invert", action="store_true")
     parser.add_argument("--loss", choices=["l1", "mse", "huber"], default="l1")
-    parser.add_argument("--lambda_facl", type=float, default=0.0)
-    parser.add_argument("--facl_fal_probability", type=float, default=0.5)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--resume", type=str, default="")
     parser.add_argument("--init_generator", type=str, default="")
@@ -57,25 +54,13 @@ def make_dataloader(args, split, max_samples):
     return make_png_dataloader(args, split, max_samples)
 
 
-def compute_loss(pred, target, name, args):
+def compute_loss(pred, target, name):
     pred = pred[..., 0]
     if name == "mse":
-        base_loss = F.mse_loss(pred, target)
-    elif name == "huber":
-        base_loss = F.smooth_l1_loss(pred, target)
-    else:
-        base_loss = F.l1_loss(pred, target)
-    if args.lambda_facl <= 0:
-        return base_loss
-    scale = max(float(args.intensity_scale), 1.0)
-    pred_norm = torch.clamp(pred / scale, 0.0, 1.0)
-    target_norm = torch.clamp(target / scale, 0.0, 1.0)
-    facl_loss = fourier_amplitude_and_correlation_loss(
-        pred_norm,
-        target_norm,
-        fal_probability=args.facl_fal_probability,
-    )
-    return base_loss + args.lambda_facl * facl_loss
+        return F.mse_loss(pred, target)
+    if name == "huber":
+        return F.smooth_l1_loss(pred, target)
+    return F.l1_loss(pred, target)
 
 
 def run_epoch(model, loader, optimizer, args, train):
@@ -89,7 +74,7 @@ def run_epoch(model, loader, optimizer, args, train):
 
         with torch.set_grad_enabled(train):
             pred = model(frames)
-            loss = compute_loss(pred, target, args.loss, args)
+            loss = compute_loss(pred, target, args.loss)
 
         if train:
             optimizer.zero_grad(set_to_none=True)
