@@ -47,6 +47,13 @@ def build_parser():
     parser.add_argument("--metric_thresholds", type=str, default="1,5,10,20,40")
     parser.add_argument("--neighborhood_metric_thresholds", type=str, default="")
     parser.add_argument("--neighborhood_size", type=int, default=5)
+    parser.add_argument("--extreme_quantiles", type=str, default="0.9,0.95,0.99")
+    parser.add_argument("--extreme_rain_min", type=float, default=0.1)
+    parser.add_argument("--quantile_bins", type=int, default=4096)
+    parser.add_argument("--intensity_bin_quantiles", type=str, default="0.5,0.75,0.9,0.95,0.99")
+    parser.add_argument("--fss_quantiles", type=str, default="0.95,0.99")
+    parser.add_argument("--fss_neighborhood_sizes", type=str, default="1,3,5,9,15")
+    parser.add_argument("--num_extreme_cases", type=int, default=5)
     parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--horizon_bins", type=str, default="0-1,1-2,2-3,3-6")
     parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
@@ -78,6 +85,18 @@ def parse_float_list(text):
     return [float(item) for item in text.split(",") if item.strip()]
 
 
+def parse_int_list(text):
+    return [int(item) for item in text.split(",") if item.strip()]
+
+
+def quantile_label(value):
+    return "P{:g}".format(float(value) * 100.0)
+
+
+def threshold_key(value):
+    return str(float(value))
+
+
 def to_png(field, intensity_scale, pixel_min=0.0, pixel_max=255.0, invert=True):
     arr = np.clip(field, 0.0, intensity_scale) / max(intensity_scale, 1e-6)
     span = max(pixel_max - pixel_min, 1e-6)
@@ -97,6 +116,26 @@ def save_sequence(folder, prefix, seq, intensity_scale, pixel_min, pixel_max, in
             cv2.imwrite(str(path), image)
         else:
             Image.fromarray(image).save(path)
+
+
+def save_color_sequence(folder, prefix, seq):
+    folder.mkdir(parents=True, exist_ok=True)
+    for i, frame in enumerate(seq):
+        path = folder / "{}{:02d}.png".format(prefix, i)
+        Image.fromarray(frame.astype("uint8"), mode="RGB").save(path)
+
+
+def event_map_sequence(pred, target, threshold):
+    pred_event = pred >= threshold
+    target_event = target >= threshold
+    maps = np.zeros(pred_event.shape + (3,), dtype="uint8")
+    hit = np.logical_and(pred_event, target_event)
+    miss = np.logical_and(~pred_event, target_event)
+    false_alarm = np.logical_and(pred_event, ~target_event)
+    maps[hit] = np.array([50, 180, 80], dtype="uint8")
+    maps[miss] = np.array([45, 105, 210], dtype="uint8")
+    maps[false_alarm] = np.array([220, 70, 60], dtype="uint8")
+    return maps
 
 
 def init_event_counts(thresholds):
@@ -128,8 +167,12 @@ def finalize_event_metrics(counts):
         pod_den = hit + miss
         far_den = hit + false_alarm
         bias_den = hit + miss
+        total = hit + miss + false_alarm + correct_negative
+        random_hit = (hit + miss) * (hit + false_alarm) / total if total else 0.0
+        ets_den = hit + miss + false_alarm - random_hit
         hss_den = (hit + miss) * (miss + correct_negative) + (hit + false_alarm) * (false_alarm + correct_negative)
         metrics[threshold] = {
+            "threshold": float(threshold),
             "hit": hit,
             "miss": miss,
             "false_alarm": false_alarm,
@@ -138,8 +181,51 @@ def finalize_event_metrics(counts):
             "pod": hit / pod_den if pod_den else 0.0,
             "far": false_alarm / far_den if far_den else 0.0,
             "bias": (hit + false_alarm) / bias_den if bias_den else 0.0,
+            "ets": (hit - random_hit) / ets_den if ets_den else 0.0,
             "hss": (2 * (hit * correct_negative - false_alarm * miss) / hss_den) if hss_den else 0.0,
         }
+    return metrics
+
+
+def init_labeled_event_counts(threshold_items):
+    return {
+        label: {
+            "threshold": float(threshold),
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 0,
+        }
+        for label, threshold in threshold_items
+    }
+
+
+def update_labeled_event_counts(counts, pred, target, threshold_items):
+    for label, threshold in threshold_items:
+        pred_event = pred >= threshold
+        target_event = target >= threshold
+        counts[label]["hit"] += torch.logical_and(pred_event, target_event).sum().item()
+        counts[label]["miss"] += torch.logical_and(~pred_event, target_event).sum().item()
+        counts[label]["false_alarm"] += torch.logical_and(pred_event, ~target_event).sum().item()
+        counts[label]["correct_negative"] += torch.logical_and(~pred_event, ~target_event).sum().item()
+
+
+def finalize_labeled_event_metrics(counts):
+    threshold_counts = {
+        threshold_key(values["threshold"]): {
+            "hit": values["hit"],
+            "miss": values["miss"],
+            "false_alarm": values["false_alarm"],
+            "correct_negative": values["correct_negative"],
+        }
+        for values in counts.values()
+    }
+    by_threshold = finalize_event_metrics(threshold_counts)
+    metrics = {}
+    for label, values in counts.items():
+        item = by_threshold[threshold_key(values["threshold"])]
+        item["label"] = label
+        metrics[label] = item
     return metrics
 
 
@@ -188,13 +274,21 @@ def average_neighborhood_score(metrics):
 
 
 def init_scalar_totals():
-    return {"abs": 0.0, "sq": 0.0, "count": 0}
+    return {"abs": 0.0, "sq": 0.0, "err": 0.0, "pred_sum": 0.0, "target_sum": 0.0, "count": 0}
 
 
-def update_scalar_totals(totals, pred, target):
+def update_scalar_totals(totals, pred, target, mask=None):
+    if mask is not None:
+        pred = pred[mask]
+        target = target[mask]
+        if pred.numel() == 0:
+            return
     diff = pred - target
     totals["abs"] += diff.abs().sum().item()
     totals["sq"] += (diff ** 2).sum().item()
+    totals["err"] += diff.sum().item()
+    totals["pred_sum"] += pred.sum().item()
+    totals["target_sum"] += target.sum().item()
     totals["count"] += diff.numel()
 
 
@@ -205,6 +299,10 @@ def finalize_scalar_totals(totals):
         "mae": totals["abs"] / count,
         "mse": mse,
         "rmse": mse ** 0.5,
+        "bias": totals["err"] / count,
+        "mean_error": totals["err"] / count,
+        "relative_bias": totals["err"] / totals["target_sum"] if abs(totals["target_sum"]) > 1e-12 else 0.0,
+        "count": totals["count"],
     }
 
 
@@ -237,6 +335,224 @@ def finalize_lead_metrics(lead_totals, frame_minutes):
 
 def finalize_horizon_metrics(horizon_totals):
     return {label: finalize_scalar_totals(totals) for label, totals in horizon_totals.items()}
+
+
+def compute_target_quantile_thresholds(loader, quantiles, rain_min, intensity_scale, bins):
+    if not quantiles:
+        return {}
+    bins = max(int(bins), 32)
+    max_value = max(float(intensity_scale), float(rain_min) + 1e-6)
+    hist = torch.zeros(bins, dtype=torch.float64)
+    rainy_count = 0
+    total_count = 0
+    dry_count = 0
+    for batch in loader:
+        target = batch["target_frames"].float()
+        total_count += target.numel()
+        rainy = target[target > rain_min]
+        dry_count += target.numel() - rainy.numel()
+        if rainy.numel() == 0:
+            continue
+        rainy = rainy.clamp(0.0, max_value)
+        hist += torch.histc(rainy, bins=bins, min=0.0, max=max_value).double()
+        rainy_count += rainy.numel()
+    if rainy_count == 0:
+        return {
+            "thresholds": {quantile_label(q): 0.0 for q in quantiles},
+            "rain_min": rain_min,
+            "rainy_count": 0,
+            "dry_count": dry_count,
+            "total_count": total_count,
+            "source": "target_pixels_above_rain_min",
+        }
+    cdf = torch.cumsum(hist, dim=0)
+    thresholds = {}
+    for q in quantiles:
+        rank = max(float(q), 0.0) * max(rainy_count - 1, 0) + 1
+        index = int(torch.searchsorted(cdf, torch.tensor(rank, dtype=torch.float64)).item())
+        index = min(max(index, 0), bins - 1)
+        thresholds[quantile_label(q)] = (index + 0.5) / bins * max_value
+    return {
+        "thresholds": thresholds,
+        "rain_min": rain_min,
+        "rainy_count": rainy_count,
+        "dry_count": dry_count,
+        "total_count": total_count,
+        "source": "target_pixels_above_rain_min",
+        "histogram_bins": bins,
+    }
+
+
+def threshold_items_from_quantiles(quantile_info, selected_labels=None):
+    thresholds = quantile_info.get("thresholds", {})
+    if selected_labels:
+        labels = [label for label in selected_labels if label in thresholds]
+    else:
+        labels = list(thresholds.keys())
+    return [(label, float(thresholds[label])) for label in labels]
+
+
+def build_intensity_bins(quantile_info, rain_min):
+    thresholds = quantile_info.get("thresholds", {})
+    required = ["P50", "P75", "P90", "P95", "P99"]
+    if not all(label in thresholds for label in required):
+        return []
+    bins = [("dry", None, float(rain_min))]
+    previous_label = "rain_min"
+    previous_value = float(rain_min)
+    for label in required:
+        value = float(thresholds[label])
+        bins.append(("{}-{}".format(previous_label, label), previous_value, value))
+        previous_label = label
+        previous_value = value
+    bins.append(("gt-P99", float(thresholds["P99"]), None))
+    return bins
+
+
+def init_intensity_bin_totals(bins):
+    return {label: init_scalar_totals() for label, _, _ in bins}
+
+
+def update_intensity_bin_totals(totals, pred, target, bins):
+    for label, low, high in bins:
+        if low is None:
+            mask = target <= high
+        elif high is None:
+            mask = target > low
+        else:
+            mask = torch.logical_and(target > low, target <= high)
+        update_scalar_totals(totals[label], pred, target, mask)
+
+
+def finalize_intensity_bin_metrics(totals):
+    return {label: finalize_scalar_totals(values) for label, values in totals.items()}
+
+
+def init_fss_totals(threshold_items, neighborhood_sizes):
+    return {
+        label: {
+            str(size): {"num": 0.0, "den": 0.0, "count": 0}
+            for size in neighborhood_sizes
+        }
+        for label, _ in threshold_items
+    }
+
+
+def update_fss_totals(totals, pred, target, threshold_items, neighborhood_sizes):
+    for label, threshold in threshold_items:
+        pred_event = (pred >= threshold).float()
+        target_event = (target >= threshold).float()
+        flat_pred = pred_event.reshape(-1, 1, pred_event.shape[-2], pred_event.shape[-1])
+        flat_target = target_event.reshape(-1, 1, target_event.shape[-2], target_event.shape[-1])
+        for size in neighborhood_sizes:
+            padding = size // 2
+            if size == 1:
+                pred_fraction = flat_pred
+                target_fraction = flat_target
+            else:
+                pred_fraction = torch.nn.functional.avg_pool2d(
+                    flat_pred, kernel_size=size, stride=1, padding=padding, count_include_pad=False
+                )
+                target_fraction = torch.nn.functional.avg_pool2d(
+                    flat_target, kernel_size=size, stride=1, padding=padding, count_include_pad=False
+                )
+            num = ((pred_fraction - target_fraction) ** 2).sum().item()
+            den = (pred_fraction ** 2 + target_fraction ** 2).sum().item()
+            key = str(size)
+            totals[label][key]["num"] += num
+            totals[label][key]["den"] += den
+            totals[label][key]["count"] += pred_fraction.numel()
+
+
+def finalize_fss_metrics(totals, threshold_items, grid_km):
+    thresholds = {label: threshold for label, threshold in threshold_items}
+    metrics = {"grid_km": grid_km, "thresholds": {}}
+    for label, by_size in totals.items():
+        metrics["thresholds"][label] = {
+            "threshold": float(thresholds[label]),
+            "neighborhoods": {},
+        }
+        for size, values in by_size.items():
+            den = values["den"]
+            metrics["thresholds"][label]["neighborhoods"][size] = {
+                "fss": 1.0 - values["num"] / den if den else 0.0,
+                "num": values["num"],
+                "den": den,
+                "count": values["count"],
+                "size_pixels": int(size),
+                "size_km": int(size) * float(grid_km),
+            }
+    return metrics
+
+
+def init_extreme_cases(limit):
+    return [] if limit > 0 else None
+
+
+def update_extreme_cases(cases, limit, batch, pred, target, persistence, arrays, extreme_threshold):
+    if cases is None or limit <= 0:
+        return
+    pred_np = pred.detach().cpu().numpy()
+    target_np = target.detach().cpu().numpy()
+    persistence_np = persistence.detach().cpu().numpy()
+    for i in range(target_np.shape[0]):
+        extreme_pixels = int((target_np[i] >= extreme_threshold).sum()) if extreme_threshold > 0 else 0
+        target_max = float(target_np[i].max())
+        score = float(extreme_pixels) * 1000.0 + target_max
+        item = {
+            "score": score,
+            "target_max": target_max,
+            "extreme_pixels": extreme_pixels,
+            "case_name": str(batch.get("case_name", [""] * target_np.shape[0])[i]),
+            "start_file": str(batch.get("start_file", [""] * target_np.shape[0])[i]),
+            "pred": pred_np[i].copy(),
+            "target": target_np[i].copy(),
+            "persistence": persistence_np[i].copy(),
+        }
+        for key, value in arrays.items():
+            item[key] = value[i].copy()
+        cases.append(item)
+    cases.sort(key=lambda item: item["score"], reverse=True)
+    del cases[limit:]
+
+
+def save_extreme_cases(output_dir, cases, thresholds, args, invert):
+    if not cases:
+        return
+    case_root = output_dir / "extreme_cases"
+    case_root.mkdir(parents=True, exist_ok=True)
+    event_thresholds = {}
+    for label in ("P95", "P99"):
+        if label in thresholds:
+            event_thresholds[label] = float(thresholds[label])
+    for rank, item in enumerate(cases):
+        folder = case_root / "case_{:04d}".format(rank)
+        folder.mkdir(parents=True, exist_ok=True)
+        save_sequence(folder, "gt_", item["target"], args.intensity_scale, args.pixel_min, args.pixel_max, invert)
+        save_sequence(folder, "pd_", item["pred"], args.intensity_scale, args.pixel_min, args.pixel_max, invert)
+        save_sequence(folder, "ps_", item["persistence"], args.intensity_scale, args.pixel_min, args.pixel_max, invert)
+        if "input" in item:
+            save_sequence(folder, "input_", item["input"], args.intensity_scale, args.pixel_min, args.pixel_max, invert)
+        if "pwv" in item:
+            save_sequence(folder, "pwv_", item["pwv"], args.pwv_intensity_scale, args.pwv_pixel_min, args.pwv_pixel_max, args.pwv_invert)
+        for key, prefix in (("coupling", "c_"), ("support", "s_"), ("attention", "a_")):
+            if key in item:
+                save_sequence(folder, prefix, item[key], 1.0, 0.0, 255.0, False)
+        abs_error = np.abs(item["pred"] - item["target"])
+        save_sequence(folder, "err_", abs_error, args.intensity_scale, args.pixel_min, args.pixel_max, False)
+        for label, threshold in event_thresholds.items():
+            save_color_sequence(folder, "hmf_{}_".format(label.lower()), event_map_sequence(item["pred"], item["target"], threshold))
+        metadata = {
+            "rank": rank,
+            "score": item["score"],
+            "case_name": item["case_name"],
+            "start_file": item["start_file"],
+            "target_max": item["target_max"],
+            "extreme_pixels": item["extreme_pixels"],
+            "event_thresholds": event_thresholds,
+        }
+        with open(folder / "metadata.json", "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
 
 
 def init_psd_totals(lead_minutes, wavelengths):
@@ -324,6 +640,23 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
+    extreme_quantiles = parse_float_list(args.extreme_quantiles)
+    intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
+    quantile_info = compute_target_quantile_thresholds(
+        loader,
+        sorted(set(extreme_quantiles + intensity_bin_quantiles)),
+        args.extreme_rain_min,
+        args.intensity_scale,
+        args.quantile_bins,
+    )
+    extreme_items = threshold_items_from_quantiles(
+        quantile_info, [quantile_label(q) for q in extreme_quantiles]
+    )
+    fss_items = threshold_items_from_quantiles(
+        quantile_info, [quantile_label(q) for q in parse_float_list(args.fss_quantiles)]
+    )
+    intensity_bins = build_intensity_bins(quantile_info, args.extreme_rain_min)
+    fss_neighborhood_sizes = parse_int_list(args.fss_neighborhood_sizes)
 
     model = build_generator(args)
     model.load_state_dict(load_state(args.checkpoint, args.device))
@@ -339,13 +672,21 @@ def main():
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
+    model_extreme_event_counts = init_labeled_event_counts(extreme_items)
+    persistence_extreme_event_counts = init_labeled_event_counts(extreme_items)
     model_neighborhood_counts = init_event_counts(neighborhood_thresholds)
     persistence_neighborhood_counts = init_event_counts(neighborhood_thresholds)
     model_lead_totals = init_lead_totals(args.gen_oc)
     persistence_lead_totals = init_lead_totals(args.gen_oc)
     model_horizon_totals = init_horizon_totals(horizon_bins)
     persistence_horizon_totals = init_horizon_totals(horizon_bins)
+    model_intensity_bin_totals = init_intensity_bin_totals(intensity_bins)
+    persistence_intensity_bin_totals = init_intensity_bin_totals(intensity_bins)
+    model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
+    persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
+    extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
+    extreme_cases = init_extreme_cases(args.num_extreme_cases)
 
     with torch.no_grad():
         for batch_id, batch in enumerate(loader):
@@ -361,13 +702,29 @@ def main():
             update_lead_and_horizon(persistence_lead_totals, persistence_horizon_totals, persistence, target, args.frame_minutes, horizon_bins)
             update_event_counts(model_event_counts, pred, target, thresholds)
             update_event_counts(persistence_event_counts, persistence, target, thresholds)
+            update_labeled_event_counts(model_extreme_event_counts, pred, target, extreme_items)
+            update_labeled_event_counts(persistence_extreme_event_counts, persistence, target, extreme_items)
             update_neighborhood_event_counts(model_neighborhood_counts, pred, target, neighborhood_thresholds, args.neighborhood_size)
             update_neighborhood_event_counts(persistence_neighborhood_counts, persistence, target, neighborhood_thresholds, args.neighborhood_size)
+            update_intensity_bin_totals(model_intensity_bin_totals, pred, target, intensity_bins)
+            update_intensity_bin_totals(persistence_intensity_bin_totals, persistence, target, intensity_bins)
+            update_fss_totals(model_fss_totals, pred, target, fss_items, fss_neighborhood_sizes)
+            update_fss_totals(persistence_fss_totals, persistence, target, fss_items, fss_neighborhood_sizes)
             update_psd_totals(psd_totals, pred, target, persistence, args.frame_minutes, psd_lead_minutes, psd_wavelengths, args.grid_km)
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
             input_np = frames.detach().cpu().numpy()[..., 0]
+            update_extreme_cases(
+                extreme_cases,
+                args.num_extreme_cases,
+                batch,
+                pred,
+                target,
+                persistence,
+                {"input": input_np[:, :args.input_length]},
+                extreme_case_threshold,
+            )
 
             for i in range(pred_np.shape[0]):
                 if saved >= args.num_save_samples:
@@ -383,6 +740,7 @@ def main():
 
     model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
     persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
+    save_extreme_cases(output_dir, extreme_cases, quantile_info.get("thresholds", {}), args, not args.no_invert)
     metrics = {
         "model": finalize_scalar_totals(model_totals),
         "persistence": finalize_scalar_totals(persistence_totals),
@@ -395,8 +753,10 @@ def main():
             "intensity_scale": args.intensity_scale,
         },
         "thresholds": thresholds,
+        "extreme_thresholds": quantile_info,
         "neighborhood_thresholds": neighborhood_thresholds,
         "neighborhood_size": args.neighborhood_size,
+        "fss_neighborhood_sizes": fss_neighborhood_sizes,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -410,9 +770,21 @@ def main():
             "model": finalize_event_metrics(model_event_counts),
             "persistence": finalize_event_metrics(persistence_event_counts),
         },
+        "extreme_event_metrics": {
+            "model": finalize_labeled_event_metrics(model_extreme_event_counts),
+            "persistence": finalize_labeled_event_metrics(persistence_extreme_event_counts),
+        },
+        "intensity_bin_metrics": {
+            "model": finalize_intensity_bin_metrics(model_intensity_bin_totals),
+            "persistence": finalize_intensity_bin_metrics(persistence_intensity_bin_totals),
+        },
         "neighborhood_event_metrics": {
             "model": model_neighborhood_metrics,
             "persistence": persistence_neighborhood_metrics,
+        },
+        "fss": {
+            "model": finalize_fss_metrics(model_fss_totals, fss_items, args.grid_km),
+            "persistence": finalize_fss_metrics(persistence_fss_totals, fss_items, args.grid_km),
         },
         "neighborhood_score": {
             "model": average_neighborhood_score(model_neighborhood_metrics),

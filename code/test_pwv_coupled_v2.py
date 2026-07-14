@@ -12,22 +12,39 @@ from nowcasting.experiments.common import (
 )
 from test_custom import (
     average_neighborhood_score,
+    build_intensity_bins,
+    compute_target_quantile_thresholds,
     finalize_event_metrics,
+    finalize_fss_metrics,
     finalize_horizon_metrics,
+    finalize_intensity_bin_metrics,
+    finalize_labeled_event_metrics,
     finalize_lead_metrics,
     finalize_neighborhood_metrics,
     finalize_psd_metrics,
     finalize_scalar_totals,
+    init_extreme_cases,
     init_event_counts,
+    init_fss_totals,
     init_horizon_totals,
+    init_intensity_bin_totals,
+    init_labeled_event_counts,
     init_lead_totals,
     init_psd_totals,
     init_scalar_totals,
     parse_float_list,
     parse_horizon_bins,
+    parse_int_list,
     parse_thresholds,
+    quantile_label,
+    save_extreme_cases,
     save_sequence,
+    threshold_items_from_quantiles,
     update_event_counts,
+    update_extreme_cases,
+    update_fss_totals,
+    update_intensity_bin_totals,
+    update_labeled_event_counts,
     update_lead_and_horizon,
     update_neighborhood_event_counts,
     update_psd_totals,
@@ -78,6 +95,13 @@ def build_parser():
     parser.add_argument("--metric_thresholds", type=str, default="1,5,10,20,40")
     parser.add_argument("--neighborhood_metric_thresholds", type=str, default="")
     parser.add_argument("--neighborhood_size", type=int, default=5)
+    parser.add_argument("--extreme_quantiles", type=str, default="0.9,0.95,0.99")
+    parser.add_argument("--extreme_rain_min", type=float, default=0.1)
+    parser.add_argument("--quantile_bins", type=int, default=4096)
+    parser.add_argument("--intensity_bin_quantiles", type=str, default="0.5,0.75,0.9,0.95,0.99")
+    parser.add_argument("--fss_quantiles", type=str, default="0.95,0.99")
+    parser.add_argument("--fss_neighborhood_sizes", type=str, default="1,3,5,9,15")
+    parser.add_argument("--num_extreme_cases", type=int, default=5)
     parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--horizon_bins", type=str, default="0-1,1-2,2-3,3-6")
     parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
@@ -95,6 +119,23 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
+    extreme_quantiles = parse_float_list(args.extreme_quantiles)
+    intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
+    quantile_info = compute_target_quantile_thresholds(
+        loader,
+        sorted(set(extreme_quantiles + intensity_bin_quantiles)),
+        args.extreme_rain_min,
+        args.intensity_scale,
+        args.quantile_bins,
+    )
+    extreme_items = threshold_items_from_quantiles(
+        quantile_info, [quantile_label(q) for q in extreme_quantiles]
+    )
+    fss_items = threshold_items_from_quantiles(
+        quantile_info, [quantile_label(q) for q in parse_float_list(args.fss_quantiles)]
+    )
+    intensity_bins = build_intensity_bins(quantile_info, args.extreme_rain_min)
+    fss_neighborhood_sizes = parse_int_list(args.fss_neighborhood_sizes)
 
     model = build_generator(args)
     model.load_state_dict(load_state(args.checkpoint, args.device))
@@ -109,13 +150,21 @@ def main():
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
+    model_extreme_event_counts = init_labeled_event_counts(extreme_items)
+    persistence_extreme_event_counts = init_labeled_event_counts(extreme_items)
     model_neighborhood_counts = init_event_counts(neighborhood_thresholds)
     persistence_neighborhood_counts = init_event_counts(neighborhood_thresholds)
     model_lead_totals = init_lead_totals(args.gen_oc)
     persistence_lead_totals = init_lead_totals(args.gen_oc)
     model_horizon_totals = init_horizon_totals(horizon_bins)
     persistence_horizon_totals = init_horizon_totals(horizon_bins)
+    model_intensity_bin_totals = init_intensity_bin_totals(intensity_bins)
+    persistence_intensity_bin_totals = init_intensity_bin_totals(intensity_bins)
+    model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
+    persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
+    extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
+    extreme_cases = init_extreme_cases(args.num_extreme_cases)
     coupling_sum = 0.0
     coupling_sq_sum = 0.0
     coupling_count = 0
@@ -143,8 +192,14 @@ def main():
             update_lead_and_horizon(persistence_lead_totals, persistence_horizon_totals, persistence, target, args.frame_minutes, horizon_bins)
             update_event_counts(model_event_counts, pred, target, thresholds)
             update_event_counts(persistence_event_counts, persistence, target, thresholds)
+            update_labeled_event_counts(model_extreme_event_counts, pred, target, extreme_items)
+            update_labeled_event_counts(persistence_extreme_event_counts, persistence, target, extreme_items)
             update_neighborhood_event_counts(model_neighborhood_counts, pred, target, neighborhood_thresholds, args.neighborhood_size)
             update_neighborhood_event_counts(persistence_neighborhood_counts, persistence, target, neighborhood_thresholds, args.neighborhood_size)
+            update_intensity_bin_totals(model_intensity_bin_totals, pred, target, intensity_bins)
+            update_intensity_bin_totals(persistence_intensity_bin_totals, persistence, target, intensity_bins)
+            update_fss_totals(model_fss_totals, pred, target, fss_items, fss_neighborhood_sizes)
+            update_fss_totals(persistence_fss_totals, persistence, target, fss_items, fss_neighborhood_sizes)
             update_psd_totals(psd_totals, pred, target, persistence, args.frame_minutes, psd_lead_minutes, psd_wavelengths, args.grid_km)
             coupling_sum += coupling.sum().item()
             coupling_sq_sum += (coupling * coupling).sum().item()
@@ -170,6 +225,25 @@ def main():
             coupling_np = coupling.detach().cpu().numpy()
             support_np = aux["support_gate"][:, :, 0].detach().cpu().numpy() if "support_gate" in aux else None
             attention_np = aux["pwv_temporal_attention"].detach().cpu().numpy() if "pwv_temporal_attention" in aux else None
+            extreme_arrays = {
+                "input": input_np[:, :args.input_length],
+                "pwv": pwv_np[:, :args.input_length],
+                "coupling": coupling_np,
+            }
+            if support_np is not None:
+                extreme_arrays["support"] = support_np
+            if attention_np is not None:
+                extreme_arrays["attention"] = attention_np
+            update_extreme_cases(
+                extreme_cases,
+                args.num_extreme_cases,
+                batch,
+                pred,
+                target,
+                persistence,
+                extreme_arrays,
+                extreme_case_threshold,
+            )
 
             for i in range(pred_np.shape[0]):
                 if saved >= args.num_save_samples:
@@ -198,6 +272,7 @@ def main():
         attention_mean = (attention_sum / attention_count).tolist()
     model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
     persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
+    save_extreme_cases(output_dir, extreme_cases, quantile_info.get("thresholds", {}), args, not args.no_invert)
     metrics = {
         "model": finalize_scalar_totals(model_totals),
         "persistence": finalize_scalar_totals(persistence_totals),
@@ -217,8 +292,10 @@ def main():
             "pwv_intensity_scale": args.pwv_intensity_scale,
         },
         "thresholds": thresholds,
+        "extreme_thresholds": quantile_info,
         "neighborhood_thresholds": neighborhood_thresholds,
         "neighborhood_size": args.neighborhood_size,
+        "fss_neighborhood_sizes": fss_neighborhood_sizes,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -232,9 +309,21 @@ def main():
             "model": finalize_event_metrics(model_event_counts),
             "persistence": finalize_event_metrics(persistence_event_counts),
         },
+        "extreme_event_metrics": {
+            "model": finalize_labeled_event_metrics(model_extreme_event_counts),
+            "persistence": finalize_labeled_event_metrics(persistence_extreme_event_counts),
+        },
+        "intensity_bin_metrics": {
+            "model": finalize_intensity_bin_metrics(model_intensity_bin_totals),
+            "persistence": finalize_intensity_bin_metrics(persistence_intensity_bin_totals),
+        },
         "neighborhood_event_metrics": {
             "model": model_neighborhood_metrics,
             "persistence": persistence_neighborhood_metrics,
+        },
+        "fss": {
+            "model": finalize_fss_metrics(model_fss_totals, fss_items, args.grid_km),
+            "persistence": finalize_fss_metrics(persistence_fss_totals, fss_items, args.grid_km),
         },
         "neighborhood_score": {
             "model": average_neighborhood_score(model_neighborhood_metrics),

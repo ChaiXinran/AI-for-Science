@@ -13,7 +13,11 @@ from make_server_3h_report import (
     colorize_gray,
     open_rgb,
     read_json,
+    save_extreme_threshold_metrics,
+    save_fss,
     save_horizon_bars,
+    save_intensity_bin_improvement,
+    save_intensity_bin_metrics,
     save_lead_curves,
     save_neighborhood_csi,
     save_psd_error,
@@ -172,7 +176,11 @@ def main():
     save_lead_curves(metrics, out_dir)
     save_horizon_bars(metrics, out_dir)
     save_threshold_metrics(metrics, out_dir)
+    save_extreme_threshold_metrics(metrics, out_dir)
     save_neighborhood_csi(metrics, out_dir)
+    save_fss(metrics, out_dir)
+    save_intensity_bin_metrics(metrics, out_dir)
+    save_intensity_bin_improvement(metrics, out_dir)
     save_psd_plots(metrics, out_dir)
     save_psd_error(metrics, out_dir)
     save_sample_grid(args, out_dir)

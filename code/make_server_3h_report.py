@@ -189,6 +189,44 @@ def save_threshold_metrics(metrics, out_dir):
     plt.close(fig)
 
 
+def save_extreme_threshold_metrics(metrics, out_dir):
+    ref = reference_data(metrics)
+    if "extreme_event_metrics" not in ref:
+        return
+    labels = list(ref["extreme_event_metrics"]["model"].keys())
+    if not labels:
+        return
+    series = {"Persistence": ref["extreme_event_metrics"]["persistence"]}
+    for name, data in metrics.items():
+        if "extreme_event_metrics" in data:
+            series[name] = data["extreme_event_metrics"]["model"]
+
+    panels = [
+        ("csi", "Extreme CSI, higher is better"),
+        ("pod", "Extreme POD, higher is better"),
+        ("far", "Extreme FAR, lower is better"),
+        ("ets", "Extreme ETS, higher is better"),
+    ]
+    x = np.arange(len(labels))
+    fig, axes = plt.subplots(2, 2, figsize=(10.0, 7.0), dpi=180, sharex=True)
+    for ax, (key, title) in zip(axes.ravel(), panels):
+        for name, values in series.items():
+            y = [values[label][key] for label in labels]
+            ax.plot(x, y, marker="o", linewidth=2.0, label=name)
+        ax.set_title(title)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels)
+        if key != "far":
+            ax.set_ylim(-0.05, 1.05)
+        ax.grid(True, alpha=0.25)
+    axes[1, 0].set_xlabel("Target rainy-pixel quantile")
+    axes[1, 1].set_xlabel("Target rainy-pixel quantile")
+    axes[0, 0].legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_dir / "extreme_threshold_metrics.png")
+    plt.close(fig)
+
+
 def save_neighborhood_csi(metrics, out_dir):
     ref = reference_data(metrics)
     if "neighborhood_event_metrics" not in ref:
@@ -224,6 +262,109 @@ def save_neighborhood_csi(metrics, out_dir):
     ax.legend(frameon=False)
     fig.tight_layout()
     fig.savefig(out_dir / "neighborhood_csi.png")
+    plt.close(fig)
+
+
+def save_fss(metrics, out_dir):
+    ref = reference_data(metrics)
+    if "fss" not in ref:
+        return
+    threshold_data = ref["fss"]["model"].get("thresholds", {})
+    if not threshold_data:
+        return
+    labels = list(threshold_data.keys())
+    fig, axes = plt.subplots(1, len(labels), figsize=(5.0 * len(labels), 4.6), dpi=180, squeeze=False)
+    for ax, label in zip(axes.ravel(), labels):
+        ref_neighborhoods = threshold_data[label]["neighborhoods"]
+        sizes = [int(size) for size in ref_neighborhoods.keys()]
+        series = {"Persistence": ref["fss"]["persistence"]["thresholds"][label]["neighborhoods"]}
+        for name, data in metrics.items():
+            if "fss" in data and label in data["fss"]["model"].get("thresholds", {}):
+                series[name] = data["fss"]["model"]["thresholds"][label]["neighborhoods"]
+        for name, values in series.items():
+            y = [values[str(size)]["fss"] for size in sizes]
+            ax.plot(sizes, y, marker="o", linewidth=2.0, label=name)
+        ax.set_title(f"FSS at {label}")
+        ax.set_xlabel("Neighbourhood size (pixels)")
+        ax.set_ylabel("FSS")
+        ax.set_ylim(-0.05, 1.05)
+        ax.grid(True, alpha=0.25)
+    axes.ravel()[0].legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_dir / "fss_extreme.png")
+    plt.close(fig)
+
+
+def save_intensity_bin_metrics(metrics, out_dir):
+    ref = reference_data(metrics)
+    if "intensity_bin_metrics" not in ref:
+        return
+    bins = list(ref["intensity_bin_metrics"]["model"].keys())
+    if not bins:
+        return
+    labels = ["Persistence"] + list(metrics.keys())
+    for metric in ("mae", "rmse", "bias"):
+        values = {
+            "Persistence": [
+                ref["intensity_bin_metrics"]["persistence"][label][metric]
+                for label in bins
+            ]
+        }
+        for name, data in metrics.items():
+            if "intensity_bin_metrics" in data:
+                values[name] = [data["intensity_bin_metrics"]["model"][label][metric] for label in bins]
+        x = np.arange(len(bins))
+        width = min(0.22, 0.8 / max(len(labels), 1))
+        offsets = (np.arange(len(values)) - (len(values) - 1) / 2.0) * width
+        fig, ax = plt.subplots(figsize=(11.5, 5.0), dpi=180)
+        for offset, label in zip(offsets, values.keys()):
+            ax.bar(x + offset, values[label], width, label=label)
+        ax.set_xticks(x)
+        ax.set_xticklabels(bins, rotation=25, ha="right")
+        ax.set_ylabel(f"{metric.upper()} (mm/h)")
+        ax.set_title(f"{metric.upper()} by observed rain-rate bin")
+        ax.grid(axis="y", alpha=0.25)
+        ax.legend(frameon=False)
+        fig.tight_layout()
+        fig.savefig(out_dir / f"intensity_bin_{metric}.png")
+        plt.close(fig)
+
+
+def save_intensity_bin_improvement(metrics, out_dir):
+    if "Radar-only" not in metrics:
+        return
+    radar = metrics["Radar-only"]
+    if "intensity_bin_metrics" not in radar:
+        return
+    bins = list(radar["intensity_bin_metrics"]["model"].keys())
+    candidates = {
+        name: data
+        for name, data in metrics.items()
+        if name != "Radar-only" and "intensity_bin_metrics" in data
+    }
+    if not candidates:
+        return
+    x = np.arange(len(bins))
+    width = min(0.26, 0.8 / max(len(candidates), 1))
+    offsets = (np.arange(len(candidates)) - (len(candidates) - 1) / 2.0) * width
+    fig, axes = plt.subplots(2, 1, figsize=(11.5, 7.5), dpi=180, sharex=True)
+    for ax, metric in zip(axes, ("mae", "rmse")):
+        for offset, (name, data) in zip(offsets, candidates.items()):
+            improvement = []
+            for label in bins:
+                base = radar["intensity_bin_metrics"]["model"][label][metric]
+                value = data["intensity_bin_metrics"]["model"][label][metric]
+                improvement.append((base - value) / base * 100.0 if base else 0.0)
+            ax.bar(x + offset, improvement, width, label=name)
+        ax.axhline(0.0, color="0.25", linewidth=1.0)
+        ax.set_ylabel(f"{metric.upper()} improvement (%)")
+        ax.grid(axis="y", alpha=0.25)
+    axes[-1].set_xticks(x)
+    axes[-1].set_xticklabels(bins, rotation=25, ha="right")
+    axes[0].set_title("Improvement relative to Radar-only by observed rain-rate bin")
+    axes[0].legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_dir / "intensity_bin_improvement.png")
     plt.close(fig)
 
 
@@ -384,12 +525,34 @@ def summarize(metrics, out_dir):
             "pwv_v3": metrics.get("PWV V3", {}).get("event_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("event_metrics", {}).get("model"),
         },
+        "extreme_thresholds": ref.get("extreme_thresholds"),
+        "extreme_event_metrics": {
+            "persistence": ref.get("extreme_event_metrics", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("extreme_event_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("extreme_event_metrics", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("extreme_event_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("extreme_event_metrics", {}).get("model"),
+        },
+        "intensity_bin_metrics": {
+            "persistence": ref.get("intensity_bin_metrics", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("intensity_bin_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("intensity_bin_metrics", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("intensity_bin_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("intensity_bin_metrics", {}).get("model"),
+        },
         "neighborhood_event_metrics": {
             "persistence": ref.get("neighborhood_event_metrics", {}).get("persistence"),
             "radar_only": metrics.get("Radar-only", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_event_metrics", {}).get("model"),
+        },
+        "fss": {
+            "persistence": ref.get("fss", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("fss", {}).get("model"),
+            "pwv_v2": pwv.get("fss", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("fss", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("fss", {}).get("model"),
         },
         "neighborhood_score": {
             "persistence": ref.get("neighborhood_score", {}).get("persistence"),
@@ -413,7 +576,11 @@ def main():
     save_lead_curves(metrics, out_dir)
     save_horizon_bars(metrics, out_dir)
     save_threshold_metrics(metrics, out_dir)
+    save_extreme_threshold_metrics(metrics, out_dir)
     save_neighborhood_csi(metrics, out_dir)
+    save_fss(metrics, out_dir)
+    save_intensity_bin_metrics(metrics, out_dir)
+    save_intensity_bin_improvement(metrics, out_dir)
     save_psd_plots(metrics, out_dir)
     save_psd_error(metrics, out_dir)
     save_sample_grid(run_root, out_dir)
