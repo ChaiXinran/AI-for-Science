@@ -8,9 +8,15 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 from make_server_3h_report import (
     colorize_gray,
     open_rgb,
+    save_cra,
     save_extreme_threshold_metrics,
     save_fss,
     save_horizon_bars,
@@ -18,6 +24,7 @@ from make_server_3h_report import (
     save_intensity_bin_metrics,
     save_lead_curves,
     save_neighborhood_csi,
+    save_pearson,
     save_psd_error,
     save_psd_plots,
     save_threshold_metrics,
@@ -32,14 +39,18 @@ from test_custom import (
     finalize_labeled_event_metrics,
     finalize_lead_metrics,
     finalize_neighborhood_metrics,
+    finalize_pearson_totals,
     finalize_psd_metrics,
     finalize_scalar_totals,
+    init_cra_store,
     init_event_counts,
+    init_eventwise_store,
     init_fss_totals,
     init_horizon_totals,
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
+    init_pearson_totals,
     init_psd_totals,
     init_scalar_totals,
     parse_float_list,
@@ -48,12 +59,17 @@ from test_custom import (
     parse_thresholds,
     quantile_label,
     threshold_items_from_quantiles,
+    summarize_cra_store,
+    summarize_eventwise_store,
+    update_cra_store,
     update_event_counts,
+    update_eventwise_store,
     update_fss_totals,
     update_intensity_bin_totals,
     update_labeled_event_counts,
     update_lead_and_horizon,
     update_neighborhood_event_counts,
+    update_pearson_totals,
     update_psd_totals,
     update_scalar_totals,
 )
@@ -103,6 +119,9 @@ def build_parser():
     parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--psd_wavelengths", type=str, default="4,8,16,32,64")
     parser.add_argument("--grid_km", type=float, default=1.0)
+    parser.add_argument("--cra_thresholds", type=str, default="16")
+    parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
+    parser.add_argument("--cra_max_shift", type=int, default=12)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument(
         "--only_with_metrics",
@@ -266,6 +285,8 @@ def recompute_metrics(result_dir, args):
     horizon_bins = parse_horizon_bins(args.horizon_bins)
     psd_lead_minutes = parse_float_list(args.psd_lead_minutes)
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
+    cra_thresholds = parse_thresholds(args.cra_thresholds)
+    cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
     extreme_quantiles = parse_float_list(args.extreme_quantiles)
     intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
     quantile_info = compute_quantile_info(
@@ -300,6 +321,12 @@ def recompute_metrics(result_dir, args):
     model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
+    model_pearson_totals = init_pearson_totals(pred_length)
+    persistence_pearson_totals = init_pearson_totals(pred_length)
+    model_eventwise = init_eventwise_store(thresholds)
+    persistence_eventwise = init_eventwise_store(thresholds)
+    model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
 
     device = torch.device(args.device)
     for _, pred_np, target_np, persistence_np in batches:
@@ -350,6 +377,12 @@ def recompute_metrics(result_dir, args):
             psd_wavelengths,
             args.grid_km,
         )
+        update_pearson_totals(model_pearson_totals, pred, target)
+        update_pearson_totals(persistence_pearson_totals, persistence, target)
+        update_eventwise_store(model_eventwise, pred, target, thresholds)
+        update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
+        update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+        update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
 
     model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
     persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
@@ -374,6 +407,9 @@ def recompute_metrics(result_dir, args):
         "neighborhood_thresholds": neighborhood_thresholds,
         "neighborhood_size": args.neighborhood_size,
         "fss_neighborhood_sizes": fss_neighborhood_sizes,
+        "cra_thresholds": cra_thresholds,
+        "cra_lead_minutes": cra_lead_minutes,
+        "cra_max_shift": args.cra_max_shift,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -408,6 +444,18 @@ def recompute_metrics(result_dir, args):
             "persistence": average_neighborhood_score(persistence_neighborhood_metrics),
         },
         "psd": finalize_psd_metrics(psd_totals, psd_wavelengths, args.grid_km),
+        "pearson": {
+            "model": finalize_pearson_totals(model_pearson_totals, args.frame_minutes),
+            "persistence": finalize_pearson_totals(persistence_pearson_totals, args.frame_minutes),
+        },
+        "eventwise": {
+            "model": summarize_eventwise_store(model_eventwise),
+            "persistence": summarize_eventwise_store(persistence_eventwise),
+        },
+        "cra": {
+            "model": summarize_cra_store(model_cra),
+            "persistence": summarize_cra_store(persistence_cra),
+        },
     }
     return metrics
 
@@ -461,6 +509,91 @@ def save_sample_grid(entries, out_dir):
     canvas.save(out_dir / "sample_0000_recomputed_grid.png")
 
 
+def save_cumulative_rainfall(entries, out_dir, args):
+    sample_entries = [(label, result_dir / "sample_0000") for label, result_dir, _ in entries]
+    sample_entries = [(label, path) for label, path in sample_entries if path.exists()]
+    if not sample_entries:
+        return
+    reference = sample_entries[0][1]
+    target = load_sequence(reference, "gt", args)
+    persistence = load_sequence(reference, "ps", args)
+    if target is None:
+        return
+    x = np.arange(1, target.shape[0] + 1) * args.frame_minutes / 60.0
+    fig, ax = plt.subplots(figsize=(9.2, 5.0), dpi=180)
+    ax.plot(x, np.cumsum(target.mean(axis=(1, 2))), color="0.15", linewidth=2.6, label="Ground truth")
+    if persistence is not None:
+        length = min(len(x), persistence.shape[0])
+        ax.plot(x[:length], np.cumsum(persistence[:length].mean(axis=(1, 2))), color="0.45", linestyle="--", linewidth=2.0, label="Persistence")
+    for label, sample_dir in sample_entries:
+        pred = load_sequence(sample_dir, "pd", args)
+        if pred is None:
+            continue
+        length = min(len(x), pred.shape[0])
+        ax.plot(x[:length], np.cumsum(pred[:length].mean(axis=(1, 2))), linewidth=2.0, label=label)
+    ax.set_xlabel("Lead time (hours)")
+    ax.set_ylabel("Cumulative domain-mean rain rate")
+    ax.set_title("Sample cumulative rainfall curve")
+    ax.grid(True, alpha=0.25)
+    ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_dir / "sample_0000_cumulative_rainfall.png")
+    plt.close(fig)
+
+
+def render_error_image(error, vmax):
+    cm = plt.get_cmap("inferno")
+    arr = np.clip(error / max(vmax, 1e-6), 0.0, 1.0)
+    return Image.fromarray((cm(arr)[..., :3] * 255).astype("uint8"))
+
+
+def save_spatial_error_maps(entries, out_dir, args):
+    sample_entries = [(label, result_dir / "sample_0000") for label, result_dir, _ in entries]
+    sample_entries = [(label, path) for label, path in sample_entries if path.exists()]
+    if not sample_entries:
+        return
+    reference = sample_entries[0][1]
+    target = load_sequence(reference, "gt", args)
+    if target is None:
+        return
+    preferred = [
+        ("t+1\n0.1h", 0),
+        ("t+10\n1.0h", 9),
+        ("t+20\n2.0h", 19),
+        ("t+30\n3.0h", 29),
+    ]
+    columns = [(label, idx) for label, idx in preferred if idx < target.shape[0]]
+    if not columns:
+        return
+    rows = []
+    for label, sample_dir in sample_entries:
+        pred = load_sequence(sample_dir, "pd", args)
+        if pred is None:
+            continue
+        rows.append((label, pred))
+    if not rows:
+        return
+    vmax = max(
+        float(np.nanmax(np.abs(pred[:target.shape[0]] - target[:pred.shape[0]])))
+        for _, pred in rows
+    )
+    cell_w, cell_h = 96, 96
+    label_w, top_h = 188, 42
+    canvas = Image.new("RGB", (label_w + len(columns) * cell_w, top_h + len(rows) * cell_h), "white")
+    draw = ImageDraw.Draw(canvas)
+    for c, (label, _) in enumerate(columns):
+        draw.multiline_text((label_w + c * cell_w + 27, 6), label, fill="black", align="center", spacing=2)
+    for r, (label, pred) in enumerate(rows):
+        y = top_h + r * cell_h
+        draw.text((8, y + 40), label, fill="black")
+        for c, (_, idx) in enumerate(columns):
+            if idx >= pred.shape[0]:
+                continue
+            error = np.abs(pred[idx] - target[idx])
+            canvas.paste(render_error_image(error, vmax), (label_w + c * cell_w, y))
+    canvas.save(out_dir / "sample_0000_abs_error_maps.png")
+
+
 def save_summary(metrics_by_label, manifest_rows, out_dir):
     summary = OrderedDict()
     for label, metrics in metrics_by_label.items():
@@ -472,6 +605,9 @@ def save_summary(metrics_by_label, manifest_rows, out_dir):
             "event_metrics": metrics.get("event_metrics", {}).get("model"),
             "neighborhood_event_metrics": metrics.get("neighborhood_event_metrics", {}).get("model"),
             "neighborhood_score": metrics.get("neighborhood_score", {}).get("model"),
+            "pearson": metrics.get("pearson", {}).get("model"),
+            "eventwise": metrics.get("eventwise", {}).get("model"),
+            "cra": metrics.get("cra", {}).get("model"),
         }
     with open(out_dir / "summary_recomputed.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
@@ -542,11 +678,15 @@ def main():
     save_extreme_threshold_metrics(metrics_by_label, output_dir)
     save_neighborhood_csi(metrics_by_label, output_dir)
     save_fss(metrics_by_label, output_dir)
+    save_pearson(metrics_by_label, output_dir)
+    save_cra(metrics_by_label, output_dir)
     save_intensity_bin_metrics(metrics_by_label, output_dir)
     save_intensity_bin_improvement(metrics_by_label, output_dir)
     save_psd_plots(metrics_by_label, output_dir)
     save_psd_error(metrics_by_label, output_dir)
     save_sample_grid(entries, output_dir)
+    save_cumulative_rainfall(entries, output_dir, args)
+    save_spatial_error_maps(entries, output_dir, args)
     save_summary(metrics_by_label, manifest_rows, output_dir)
     write_manifest_csv(manifest_rows, output_dir / args.manifest_name)
     print(f"saved recomputed comparison report to {output_dir}", flush=True)

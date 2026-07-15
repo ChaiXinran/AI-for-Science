@@ -168,11 +168,13 @@ def save_threshold_metrics(metrics, out_dir):
         ("pod", "POD, higher is better"),
         ("far", "FAR, lower is better"),
         ("hss", "HSS, higher is better"),
+        ("f1", "F1, higher is better"),
+        ("ets", "ETS, higher is better"),
     ]
-    fig, axes = plt.subplots(2, 2, figsize=(10.0, 7.0), dpi=180, sharex=True)
+    fig, axes = plt.subplots(2, 3, figsize=(13.0, 7.0), dpi=180, sharex=True)
     for ax, (key, title) in zip(axes.ravel(), panels):
         for name, values in series.items():
-            y = [values[threshold_key(t)][key] for t in thresholds]
+            y = [values[threshold_key(t)].get(key, np.nan) for t in thresholds]
             ax.plot(thresholds, y, marker="o", linewidth=2.0, label=name)
         ax.set_title(title)
         ax.set_xscale("log")
@@ -181,12 +183,87 @@ def save_threshold_metrics(metrics, out_dir):
         if key != "far":
             ax.set_ylim(-0.05, 1.05)
         ax.grid(True, alpha=0.25)
-    axes[1, 0].set_xlabel("Rain-rate threshold (mm/h)")
-    axes[1, 1].set_xlabel("Rain-rate threshold (mm/h)")
+    for ax in axes[1, :]:
+        ax.set_xlabel("Rain-rate threshold (mm/h)")
     axes[0, 0].legend(frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(out_dir / "threshold_metrics.png")
     plt.close(fig)
+
+
+def save_pearson(metrics, out_dir):
+    if not any("pearson" in data for data in metrics.values()):
+        return
+    fig, ax = plt.subplots(figsize=(9.2, 5.0), dpi=180)
+    ref = reference_data(metrics)
+    if "pearson" in ref and "persistence" in ref["pearson"]:
+        items = ref["pearson"]["persistence"].get("lead_time", [])
+        if items:
+            x = [item["lead_minutes"] / 60.0 for item in items]
+            y = [item["pearson"] for item in items]
+            ax.plot(x, y, color="0.25", linewidth=2.4, label="Persistence")
+    for name, data in metrics.items():
+        items = data.get("pearson", {}).get("model", {}).get("lead_time", [])
+        if not items:
+            continue
+        x = [item["lead_minutes"] / 60.0 for item in items]
+        y = [item["pearson"] for item in items]
+        ax.plot(x, y, marker="o", linewidth=2.0, label=name)
+    ax.set_xlabel("Lead time (hours)")
+    ax.set_ylabel("Pearson spatial correlation")
+    ax.set_title("Spatial correlation by lead time")
+    ax.set_ylim(-0.05, 1.05)
+    ax.grid(True, alpha=0.25)
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_dir / "lead_pearson.png")
+    plt.close(fig)
+
+
+def save_cra(metrics, out_dir):
+    if not any("cra" in data for data in metrics.values()):
+        return
+    ref = reference_data(metrics)
+    cra_ref = ref.get("cra", {}).get("model", {})
+    if not cra_ref:
+        return
+    lead_keys = list(cra_ref.keys())
+    threshold_keys = list(next(iter(cra_ref.values())).keys())
+    for threshold in threshold_keys:
+        labels = ["Persistence"] + list(metrics.keys())
+        x = np.arange(len(lead_keys))
+        width = min(0.24, 0.8 / max(len(labels), 1))
+        offsets = (np.arange(len(labels)) - (len(labels) - 1) / 2.0) * width
+        fig, axes = plt.subplots(2, 2, figsize=(11.0, 7.5), dpi=180, sharex=True)
+        panels = [
+            ("distance_km", "CRA displacement distance (km)"),
+            ("rmse_displacement", "CRA displacement RMSE"),
+            ("rmse_volume", "CRA volume RMSE"),
+            ("rmse_pattern", "CRA pattern RMSE"),
+        ]
+        values_by_label = {}
+        ref_persistence = ref.get("cra", {}).get("persistence", {})
+        values_by_label["Persistence"] = ref_persistence
+        for name, data in metrics.items():
+            values_by_label[name] = data.get("cra", {}).get("model", {})
+        for ax, (metric_key, title) in zip(axes.ravel(), panels):
+            for offset, label in zip(offsets, labels):
+                series = values_by_label.get(label, {})
+                y = []
+                for lead in lead_keys:
+                    item = series.get(lead, {}).get(threshold, {}).get("metrics", {}).get(metric_key, {})
+                    y.append(item.get("median", np.nan))
+                ax.bar(x + offset, y, width, label=label)
+            ax.set_title(title)
+            ax.grid(axis="y", alpha=0.25)
+        for ax in axes[-1, :]:
+            ax.set_xticks(x)
+            ax.set_xticklabels([f"T+{int(lead) // 60}h" for lead in lead_keys])
+        axes[0, 0].legend(frameon=False, fontsize=8)
+        fig.tight_layout()
+        suffix = threshold.replace(".", "p")
+        fig.savefig(out_dir / f"cra_threshold_{suffix}.png")
+        plt.close(fig)
 
 
 def save_extreme_threshold_metrics(metrics, out_dir):
@@ -561,6 +638,20 @@ def summarize(metrics, out_dir):
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_score", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_score", {}).get("model"),
         },
+        "pearson": {
+            "persistence": ref.get("pearson", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("pearson", {}).get("model"),
+            "pwv_v2": pwv.get("pearson", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("pearson", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("pearson", {}).get("model"),
+        },
+        "cra": {
+            "persistence": ref.get("cra", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("cra", {}).get("model"),
+            "pwv_v2": pwv.get("cra", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("cra", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("cra", {}).get("model"),
+        },
     }
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
@@ -579,6 +670,8 @@ def main():
     save_extreme_threshold_metrics(metrics, out_dir)
     save_neighborhood_csi(metrics, out_dir)
     save_fss(metrics, out_dir)
+    save_pearson(metrics, out_dir)
+    save_cra(metrics, out_dir)
     save_intensity_bin_metrics(metrics, out_dir)
     save_intensity_bin_improvement(metrics, out_dir)
     save_psd_plots(metrics, out_dir)

@@ -21,15 +21,19 @@ from test_custom import (
     finalize_labeled_event_metrics,
     finalize_lead_metrics,
     finalize_neighborhood_metrics,
+    finalize_pearson_totals,
     finalize_psd_metrics,
     finalize_scalar_totals,
     init_extreme_cases,
+    init_cra_store,
     init_event_counts,
+    init_eventwise_store,
     init_fss_totals,
     init_horizon_totals,
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
+    init_pearson_totals,
     init_psd_totals,
     init_scalar_totals,
     parse_float_list,
@@ -40,13 +44,18 @@ from test_custom import (
     save_extreme_cases,
     save_sequence,
     threshold_items_from_quantiles,
+    summarize_cra_store,
+    summarize_eventwise_store,
     update_event_counts,
+    update_cra_store,
+    update_eventwise_store,
     update_extreme_cases,
     update_fss_totals,
     update_intensity_bin_totals,
     update_labeled_event_counts,
     update_lead_and_horizon,
     update_neighborhood_event_counts,
+    update_pearson_totals,
     update_psd_totals,
     update_scalar_totals,
 )
@@ -107,6 +116,9 @@ def build_parser():
     parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--psd_wavelengths", type=str, default="4,8,16,32,64")
     parser.add_argument("--grid_km", type=float, default=1.0)
+    parser.add_argument("--cra_thresholds", type=str, default="16")
+    parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
+    parser.add_argument("--cra_max_shift", type=int, default=12)
     return parser
 
 
@@ -148,6 +160,8 @@ def main():
     horizon_bins = parse_horizon_bins(args.horizon_bins)
     psd_lead_minutes = parse_float_list(args.psd_lead_minutes)
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
+    cra_thresholds = parse_thresholds(args.cra_thresholds)
+    cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
     model_extreme_event_counts = init_labeled_event_counts(extreme_items)
@@ -163,6 +177,12 @@ def main():
     model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
+    model_pearson_totals = init_pearson_totals(args.gen_oc)
+    persistence_pearson_totals = init_pearson_totals(args.gen_oc)
+    model_eventwise = init_eventwise_store(thresholds)
+    persistence_eventwise = init_eventwise_store(thresholds)
+    model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
     coupling_sum = 0.0
@@ -201,6 +221,12 @@ def main():
             update_fss_totals(model_fss_totals, pred, target, fss_items, fss_neighborhood_sizes)
             update_fss_totals(persistence_fss_totals, persistence, target, fss_items, fss_neighborhood_sizes)
             update_psd_totals(psd_totals, pred, target, persistence, args.frame_minutes, psd_lead_minutes, psd_wavelengths, args.grid_km)
+            update_pearson_totals(model_pearson_totals, pred, target)
+            update_pearson_totals(persistence_pearson_totals, persistence, target)
+            update_eventwise_store(model_eventwise, pred, target, thresholds)
+            update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
+            update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+            update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
             coupling_sum += coupling.sum().item()
             coupling_sq_sum += (coupling * coupling).sum().item()
             coupling_count += coupling.numel()
@@ -296,6 +322,9 @@ def main():
         "neighborhood_thresholds": neighborhood_thresholds,
         "neighborhood_size": args.neighborhood_size,
         "fss_neighborhood_sizes": fss_neighborhood_sizes,
+        "cra_thresholds": cra_thresholds,
+        "cra_lead_minutes": cra_lead_minutes,
+        "cra_max_shift": args.cra_max_shift,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -330,6 +359,18 @@ def main():
             "persistence": average_neighborhood_score(persistence_neighborhood_metrics),
         },
         "psd": finalize_psd_metrics(psd_totals, psd_wavelengths, args.grid_km),
+        "pearson": {
+            "model": finalize_pearson_totals(model_pearson_totals, args.frame_minutes),
+            "persistence": finalize_pearson_totals(persistence_pearson_totals, args.frame_minutes),
+        },
+        "eventwise": {
+            "model": summarize_eventwise_store(model_eventwise),
+            "persistence": summarize_eventwise_store(persistence_eventwise),
+        },
+        "cra": {
+            "model": summarize_cra_store(model_cra),
+            "persistence": summarize_cra_store(persistence_cra),
+        },
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)

@@ -59,6 +59,9 @@ def build_parser():
     parser.add_argument("--psd_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--psd_wavelengths", type=str, default="4,8,16,32,64")
     parser.add_argument("--grid_km", type=float, default=1.0)
+    parser.add_argument("--cra_thresholds", type=str, default="16")
+    parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
+    parser.add_argument("--cra_max_shift", type=int, default=12)
     parser.add_argument("--no_invert", action="store_true")
     return parser
 
@@ -95,6 +98,10 @@ def quantile_label(value):
 
 def threshold_key(value):
     return str(float(value))
+
+
+def safe_divide(numerator, denominator):
+    return numerator / denominator if denominator else float("nan")
 
 
 def to_png(field, intensity_scale, pixel_min=0.0, pixel_max=255.0, invert=True):
@@ -171,18 +178,20 @@ def finalize_event_metrics(counts):
         random_hit = (hit + miss) * (hit + false_alarm) / total if total else 0.0
         ets_den = hit + miss + false_alarm - random_hit
         hss_den = (hit + miss) * (miss + correct_negative) + (hit + false_alarm) * (false_alarm + correct_negative)
+        f1_den = 2 * hit + miss + false_alarm
         metrics[threshold] = {
             "threshold": float(threshold),
             "hit": hit,
             "miss": miss,
             "false_alarm": false_alarm,
             "correct_negative": correct_negative,
-            "csi": hit / csi_den if csi_den else 0.0,
-            "pod": hit / pod_den if pod_den else 0.0,
-            "far": false_alarm / far_den if far_den else 0.0,
-            "bias": (hit + false_alarm) / bias_den if bias_den else 0.0,
-            "ets": (hit - random_hit) / ets_den if ets_den else 0.0,
-            "hss": (2 * (hit * correct_negative - false_alarm * miss) / hss_den) if hss_den else 0.0,
+            "csi": safe_divide(hit, csi_den),
+            "pod": safe_divide(hit, pod_den),
+            "far": safe_divide(false_alarm, far_den),
+            "f1": safe_divide(2 * hit, f1_den),
+            "bias": safe_divide(hit + false_alarm, bias_den),
+            "ets": safe_divide(hit - random_hit, ets_den),
+            "hss": safe_divide(2 * (hit * correct_negative - false_alarm * miss), hss_den),
         }
     return metrics
 
@@ -295,14 +304,156 @@ def update_scalar_totals(totals, pred, target, mask=None):
 def finalize_scalar_totals(totals):
     count = max(totals["count"], 1)
     mse = totals["sq"] / count
+    rmse = mse ** 0.5
+    target_mean = totals["target_sum"] / count
     return {
         "mae": totals["abs"] / count,
         "mse": mse,
-        "rmse": mse ** 0.5,
+        "rmse": rmse,
         "bias": totals["err"] / count,
         "mean_error": totals["err"] / count,
+        "bias_ratio": safe_divide(totals["pred_sum"], totals["target_sum"]),
+        "normalized_error": safe_divide(rmse, target_mean),
         "relative_bias": totals["err"] / totals["target_sum"] if abs(totals["target_sum"]) > 1e-12 else 0.0,
         "count": totals["count"],
+    }
+
+
+def nan_summary(values):
+    arr = np.array([value for value in values if value is not None], dtype="float64")
+    arr = arr[np.isfinite(arr)]
+    if arr.size == 0:
+        return {
+            "count": 0,
+            "mean": float("nan"),
+            "std": float("nan"),
+            "median": float("nan"),
+            "q1": float("nan"),
+            "q3": float("nan"),
+            "min": float("nan"),
+            "max": float("nan"),
+        }
+    return {
+        "count": int(arr.size),
+        "mean": float(np.mean(arr)),
+        "std": float(np.std(arr)),
+        "median": float(np.median(arr)),
+        "q1": float(np.quantile(arr, 0.25)),
+        "q3": float(np.quantile(arr, 0.75)),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+    }
+
+
+def scalar_metrics_for_arrays(pred, target):
+    pred = pred.detach().float()
+    target = target.detach().float()
+    diff = pred - target
+    mse = float((diff ** 2).mean().item())
+    rmse = mse ** 0.5
+    target_mean = float(target.mean().item())
+    return {
+        "mae": float(diff.abs().mean().item()),
+        "mse": mse,
+        "rmse": rmse,
+        "bias": float(diff.mean().item()),
+        "mean_error": float(diff.mean().item()),
+        "bias_ratio": safe_divide(float(pred.mean().item()), target_mean),
+        "normalized_error": safe_divide(rmse, target_mean),
+        "count": int(diff.numel()),
+    }
+
+
+def pearson_corr(pred, target):
+    pred = pred.detach().float().reshape(-1)
+    target = target.detach().float().reshape(-1)
+    pred = pred - pred.mean()
+    target = target - target.mean()
+    den = torch.sqrt((pred ** 2).sum()) * torch.sqrt((target ** 2).sum())
+    if float(den.item()) <= 1e-12:
+        return float("nan")
+    return float(((pred * target).sum() / den).item())
+
+
+def init_pearson_totals(pred_length):
+    return {
+        "overall": {"sum": 0.0, "count": 0},
+        "lead": [{"sum": 0.0, "count": 0} for _ in range(pred_length)],
+    }
+
+
+def update_pearson_totals(totals, pred, target):
+    for batch_index in range(pred.shape[0]):
+        value = pearson_corr(pred[batch_index], target[batch_index])
+        if np.isfinite(value):
+            totals["overall"]["sum"] += value
+            totals["overall"]["count"] += 1
+        for lead in range(pred.shape[1]):
+            lead_value = pearson_corr(pred[batch_index, lead], target[batch_index, lead])
+            if np.isfinite(lead_value):
+                totals["lead"][lead]["sum"] += lead_value
+                totals["lead"][lead]["count"] += 1
+
+
+def finalize_pearson_totals(totals, frame_minutes):
+    overall_count = totals["overall"]["count"]
+    return {
+        "overall": safe_divide(totals["overall"]["sum"], overall_count),
+        "count": overall_count,
+        "lead_time": [
+            {
+                "lead_index": index + 1,
+                "lead_minutes": (index + 1) * frame_minutes,
+                "pearson": safe_divide(item["sum"], item["count"]),
+                "count": item["count"],
+            }
+            for index, item in enumerate(totals["lead"])
+        ],
+    }
+
+
+def event_metrics_for_arrays(pred, target, thresholds):
+    counts = init_event_counts(thresholds)
+    update_event_counts(counts, pred.unsqueeze(0), target.unsqueeze(0), thresholds)
+    return finalize_event_metrics(counts)
+
+
+def init_eventwise_store(thresholds):
+    return {
+        "scalar": [],
+        "pearson": [],
+        "thresholds": {threshold_key(thr): [] for thr in thresholds},
+    }
+
+
+def update_eventwise_store(store, pred, target, thresholds):
+    for batch_index in range(pred.shape[0]):
+        sample_pred = pred[batch_index]
+        sample_target = target[batch_index]
+        sample_scalar = scalar_metrics_for_arrays(sample_pred, sample_target)
+        sample_scalar["pearson"] = pearson_corr(sample_pred, sample_target)
+        store["scalar"].append(sample_scalar)
+        store["pearson"].append(sample_scalar["pearson"])
+        sample_events = event_metrics_for_arrays(sample_pred, sample_target, thresholds)
+        for key, values in sample_events.items():
+            store["thresholds"][key].append(values)
+
+
+def summarize_eventwise_store(store):
+    scalar_keys = ("mae", "rmse", "bias", "bias_ratio", "normalized_error", "pearson")
+    threshold_keys = ("csi", "pod", "far", "f1", "bias", "ets", "hss")
+    return {
+        "scalar": {
+            key: nan_summary([item.get(key) for item in store["scalar"]])
+            for key in scalar_keys
+        },
+        "thresholds": {
+            threshold: {
+                key: nan_summary([item.get(key) for item in values])
+                for key in threshold_keys
+            }
+            for threshold, values in store["thresholds"].items()
+        },
     }
 
 
@@ -633,6 +784,212 @@ def finalize_psd_metrics(psd_totals, wavelengths, grid_km):
     return metrics
 
 
+def shift_2d_zero(field, dx, dy):
+    shifted = np.zeros_like(field)
+    height, width = field.shape
+    src_y0 = max(0, -dy)
+    src_y1 = min(height, height - dy)
+    src_x0 = max(0, -dx)
+    src_x1 = min(width, width - dx)
+    dst_y0 = max(0, dy)
+    dst_y1 = min(height, height + dy)
+    dst_x0 = max(0, dx)
+    dst_x1 = min(width, width + dx)
+    if src_y1 <= src_y0 or src_x1 <= src_x0:
+        return shifted
+    shifted[dst_y0:dst_y1, dst_x0:dst_x1] = field[src_y0:src_y1, src_x0:src_x1]
+    return shifted
+
+
+def largest_component_mask(mask):
+    mask = np.asarray(mask, dtype=np.uint8)
+    if mask.sum() == 0:
+        return mask.astype(bool)
+    if cv2 is not None:
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+        if count <= 1:
+            return mask.astype(bool)
+        largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        return labels == largest
+
+    visited = np.zeros(mask.shape, dtype=bool)
+    best_pixels = []
+    height, width = mask.shape
+    for y in range(height):
+        for x in range(width):
+            if not mask[y, x] or visited[y, x]:
+                continue
+            stack = [(y, x)]
+            visited[y, x] = True
+            pixels = []
+            while stack:
+                cy, cx = stack.pop()
+                pixels.append((cy, cx))
+                for ny in range(max(0, cy - 1), min(height, cy + 2)):
+                    for nx in range(max(0, cx - 1), min(width, cx + 2)):
+                        if mask[ny, nx] and not visited[ny, nx]:
+                            visited[ny, nx] = True
+                            stack.append((ny, nx))
+            if len(pixels) > len(best_pixels):
+                best_pixels = pixels
+    result = np.zeros(mask.shape, dtype=bool)
+    for y, x in best_pixels:
+        result[y, x] = True
+    return result
+
+
+def pearson_corr_np(a, b):
+    a = np.asarray(a, dtype="float64").reshape(-1)
+    b = np.asarray(b, dtype="float64").reshape(-1)
+    if a.size == 0:
+        return float("nan")
+    a = a - np.mean(a)
+    b = b - np.mean(b)
+    den = np.sqrt(np.sum(a * a)) * np.sqrt(np.sum(b * b))
+    if den <= 1e-12:
+        return float("nan")
+    return float(np.sum(a * b) / den)
+
+
+def cra_one_field(pred, target, threshold, max_shift, grid_km):
+    pred_np = np.asarray(pred, dtype="float64")
+    target_np = np.asarray(target, dtype="float64")
+    obs_mask = largest_component_mask(target_np > threshold)
+    pred_mask = largest_component_mask(pred_np > threshold)
+    obs_pixels = int(obs_mask.sum())
+    pred_pixels = int(pred_mask.sum())
+    if obs_pixels == 0 or pred_pixels == 0:
+        return {
+            "valid": False,
+            "threshold": float(threshold),
+            "obs_pixels": obs_pixels,
+            "pred_pixels": pred_pixels,
+            "reason": "missing_observed_object" if obs_pixels == 0 else "missing_forecast_object",
+        }
+
+    pred_object = pred_np * pred_mask
+    obs_object = target_np * obs_mask
+    fixed_mask = obs_mask | pred_mask
+    r_original = pearson_corr_np(pred_object[fixed_mask], obs_object[fixed_mask])
+    if not np.isfinite(r_original):
+        r_original = 0.0
+
+    best = {"r": -float("inf"), "dx": 0, "dy": 0}
+    for dy in range(-max_shift, max_shift + 1):
+        for dx in range(-max_shift, max_shift + 1):
+            shifted_pred = shift_2d_zero(pred_object, dx, dy)
+            shifted_mask = shift_2d_zero(pred_mask.astype(np.uint8), dx, dy).astype(bool)
+            compare_mask = obs_mask | shifted_mask
+            r_value = pearson_corr_np(shifted_pred[compare_mask], obs_object[compare_mask])
+            if np.isfinite(r_value) and r_value > best["r"]:
+                best = {"r": r_value, "dx": dx, "dy": dy}
+
+    if not np.isfinite(best["r"]):
+        best = {"r": r_original, "dx": 0, "dy": 0}
+
+    f_values = pred_object[fixed_mask]
+    x_values = obs_object[fixed_mask]
+    f_mean = float(np.mean(f_values))
+    x_mean = float(np.mean(x_values))
+    f_std = float(np.std(f_values))
+    x_std = float(np.std(x_values))
+    mse_total = float((f_mean - x_mean) ** 2 + f_std ** 2 + x_std ** 2 - 2.0 * r_original * f_std * x_std)
+    mse_displacement = float(2.0 * f_std * x_std * (best["r"] - r_original))
+    mse_volume = float((f_mean - x_mean) ** 2)
+    mse_pattern = float(2.0 * f_std * x_std * (1.0 - best["r"]) + (f_std - x_std) ** 2)
+    components = {
+        "total": max(mse_total, 0.0),
+        "displacement": max(mse_displacement, 0.0),
+        "volume": max(mse_volume, 0.0),
+        "pattern": max(mse_pattern, 0.0),
+    }
+    total_den = components["total"] if components["total"] > 1e-12 else float("nan")
+    return {
+        "valid": True,
+        "threshold": float(threshold),
+        "obs_pixels": obs_pixels,
+        "pred_pixels": pred_pixels,
+        "dx_pixels": int(best["dx"]),
+        "dy_pixels": int(best["dy"]),
+        "distance_km": float((best["dx"] ** 2 + best["dy"] ** 2) ** 0.5 * grid_km),
+        "direction_deg": float(np.degrees(np.arctan2(best["dy"], best["dx"]))),
+        "r_original": float(r_original),
+        "r_optimal": float(best["r"]),
+        "mse_total": components["total"],
+        "mse_displacement": components["displacement"],
+        "mse_volume": components["volume"],
+        "mse_pattern": components["pattern"],
+        "rmse_total": components["total"] ** 0.5,
+        "rmse_displacement": components["displacement"] ** 0.5,
+        "rmse_volume": components["volume"] ** 0.5,
+        "rmse_pattern": components["pattern"] ** 0.5,
+        "percent_displacement": safe_divide(components["displacement"] * 100.0, total_den),
+        "percent_volume": safe_divide(components["volume"] * 100.0, total_den),
+        "percent_pattern": safe_divide(components["pattern"] * 100.0, total_den),
+    }
+
+
+def init_cra_store(thresholds, lead_minutes):
+    return {
+        str(int(lead)): {threshold_key(thr): [] for thr in thresholds}
+        for lead in lead_minutes
+    }
+
+
+def update_cra_store(store, pred, target, frame_minutes, lead_minutes, thresholds, max_shift, grid_km):
+    pred_np = pred.detach().cpu().numpy()
+    target_np = target.detach().cpu().numpy()
+    for lead in lead_minutes:
+        index = int(round(float(lead) / frame_minutes)) - 1
+        if index < 0 or index >= pred_np.shape[1]:
+            continue
+        lead_key = str(int(lead))
+        for threshold in thresholds:
+            key = threshold_key(threshold)
+            for batch_index in range(pred_np.shape[0]):
+                store[lead_key][key].append(
+                    cra_one_field(
+                        pred_np[batch_index, index],
+                        target_np[batch_index, index],
+                        threshold,
+                        max_shift,
+                        grid_km,
+                    )
+                )
+
+
+def summarize_cra_store(store):
+    metric_keys = (
+        "distance_km",
+        "dx_pixels",
+        "dy_pixels",
+        "r_original",
+        "r_optimal",
+        "rmse_total",
+        "rmse_displacement",
+        "rmse_volume",
+        "rmse_pattern",
+        "percent_displacement",
+        "percent_volume",
+        "percent_pattern",
+    )
+    summary = {}
+    for lead, by_threshold in store.items():
+        summary[lead] = {}
+        for threshold, items in by_threshold.items():
+            valid = [item for item in items if item.get("valid")]
+            summary[lead][threshold] = {
+                "count": len(items),
+                "valid_count": len(valid),
+                "missing_count": len(items) - len(valid),
+                "metrics": {
+                    key: nan_summary([item.get(key) for item in valid])
+                    for key in metric_keys
+                },
+            }
+    return summary
+
+
 def main():
     args = add_model_runtime_args(build_parser().parse_args())
 
@@ -670,6 +1027,8 @@ def main():
     horizon_bins = parse_horizon_bins(args.horizon_bins)
     psd_lead_minutes = parse_float_list(args.psd_lead_minutes)
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
+    cra_thresholds = parse_thresholds(args.cra_thresholds)
+    cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
     model_extreme_event_counts = init_labeled_event_counts(extreme_items)
@@ -685,6 +1044,12 @@ def main():
     model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     psd_totals = init_psd_totals(psd_lead_minutes, psd_wavelengths)
+    model_pearson_totals = init_pearson_totals(args.gen_oc)
+    persistence_pearson_totals = init_pearson_totals(args.gen_oc)
+    model_eventwise = init_eventwise_store(thresholds)
+    persistence_eventwise = init_eventwise_store(thresholds)
+    model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
 
@@ -711,6 +1076,12 @@ def main():
             update_fss_totals(model_fss_totals, pred, target, fss_items, fss_neighborhood_sizes)
             update_fss_totals(persistence_fss_totals, persistence, target, fss_items, fss_neighborhood_sizes)
             update_psd_totals(psd_totals, pred, target, persistence, args.frame_minutes, psd_lead_minutes, psd_wavelengths, args.grid_km)
+            update_pearson_totals(model_pearson_totals, pred, target)
+            update_pearson_totals(persistence_pearson_totals, persistence, target)
+            update_eventwise_store(model_eventwise, pred, target, thresholds)
+            update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
+            update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+            update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
@@ -757,6 +1128,9 @@ def main():
         "neighborhood_thresholds": neighborhood_thresholds,
         "neighborhood_size": args.neighborhood_size,
         "fss_neighborhood_sizes": fss_neighborhood_sizes,
+        "cra_thresholds": cra_thresholds,
+        "cra_lead_minutes": cra_lead_minutes,
+        "cra_max_shift": args.cra_max_shift,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -791,6 +1165,18 @@ def main():
             "persistence": average_neighborhood_score(persistence_neighborhood_metrics),
         },
         "psd": finalize_psd_metrics(psd_totals, psd_wavelengths, args.grid_km),
+        "pearson": {
+            "model": finalize_pearson_totals(model_pearson_totals, args.frame_minutes),
+            "persistence": finalize_pearson_totals(persistence_pearson_totals, args.frame_minutes),
+        },
+        "eventwise": {
+            "model": summarize_eventwise_store(model_eventwise),
+            "persistence": summarize_eventwise_store(persistence_eventwise),
+        },
+        "cra": {
+            "model": summarize_cra_store(model_cra),
+            "persistence": summarize_cra_store(persistence_cra),
+        },
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
