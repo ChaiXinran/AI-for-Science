@@ -510,6 +510,10 @@ def save_sample_grid(entries, out_dir):
             rows.append((f"Support {label}", lambda i, p=sample_dir: colorize_gray(p / f"s_{i:02d}.png", cmap="magma")))
         if (sample_dir / "a_00.png").exists():
             rows.append((f"Attention {label}", lambda i, p=sample_dir: colorize_gray(p / f"a_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
+        if (sample_dir / "oc_00.png").exists():
+            rows.append((f"Object center {label}", lambda i, p=sample_dir: colorize_gray(p / f"oc_{i:02d}.png", cmap="magma", stretch=True)))
+        if (sample_dir / "om_00.png").exists():
+            rows.append((f"Object mask {label}", lambda i, p=sample_dir: colorize_gray(p / f"om_{i:02d}.png", cmap="magma", stretch=True)))
 
     cell_w, cell_h = 96, 96
     label_w, top_h = 188, 42

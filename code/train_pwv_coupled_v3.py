@@ -12,6 +12,7 @@ from nowcasting.experiments.common import (
 from nowcasting.facl import build_facl_loss, compute_forecast_reconstruction_loss
 from nowcasting.models.pwv_features import parse_tendency_windows, pwv_tendency_maps
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
+from nowcasting.object_targets import compute_object_loss
 from train_adversarial_custom import (
     append_epoch_log,
     autocast_context,
@@ -52,6 +53,16 @@ def build_parser():
     parser.add_argument("--lambda_support_dry", type=float, default=0.05)
     parser.add_argument("--lambda_support_l1", type=float, default=0.01)
     parser.add_argument("--false_alarm_threshold", type=float, default=2.0)
+    parser.add_argument("--object_head_base_channels", type=int, default=24)
+    parser.add_argument("--object_loss_threshold", type=float, default=16.0)
+    parser.add_argument("--object_loss_min_area", type=int, default=4)
+    parser.add_argument("--object_center_sigma", type=float, default=2.0)
+    parser.add_argument("--object_center_pos_weight", type=float, default=20.0)
+    parser.add_argument("--object_mask_pos_weight", type=float, default=3.0)
+    parser.add_argument("--lambda_object_center", type=float, default=0.0)
+    parser.add_argument("--lambda_object_mask", type=float, default=0.0)
+    parser.add_argument("--lambda_object_area", type=float, default=0.0)
+    parser.add_argument("--lambda_object_intensity", type=float, default=0.0)
     return parser
 
 
@@ -157,6 +168,15 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
     fa_loss = false_alarm_loss(pred, target, frames, pwv, args)
     dry_support_loss = support_dry_loss(support_gate, target, frames, pwv, args)
+    object_loss = pred.new_tensor(0.0)
+    object_parts = {}
+    if "object" in aux and (
+        args.lambda_object_center
+        + args.lambda_object_mask
+        + args.lambda_object_area
+        + args.lambda_object_intensity
+    ) > 0:
+        object_loss, object_parts = compute_object_loss(aux["object"], target, args)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -172,6 +192,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
         + args.lambda_shuffle * shuffle_loss
         + args.lambda_false_alarm * fa_loss
         + args.lambda_support_dry * dry_support_loss
+        + object_loss
     )
     parts = {
         "g_total": total.detach(),
@@ -189,6 +210,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
         "false_alarm": fa_loss.detach(),
         "support_dry": dry_support_loss.detach(),
     }
+    parts.update(object_parts)
     parts.update({key: value.detach() for key, value in forecast_parts.items()})
     return total, parts
 
@@ -252,7 +274,7 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
 
         if step % args.log_interval == 0:
             msg = "step {:05d}".format(step)
-            for key in ("g_total", "d_total", "forecast", "false_alarm", "support_mean", "support_dry"):
+            for key in ("g_total", "d_total", "forecast", "object_total", "false_alarm", "support_mean", "support_dry"):
                 msg += " {} {:.5f}".format(key, totals.get(key, 0.0) / max(seen, 1))
             print(msg, flush=True)
 
@@ -267,6 +289,7 @@ def validate(generator, loader, args):
     c_mean = 0.0
     s_mean = 0.0
     fa = 0.0
+    obj = 0.0
     for batch in loader:
         frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
         pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
@@ -278,8 +301,16 @@ def validate(generator, loader, args):
         c_mean += aux["coupling"].mean().item() * frames.size(0)
         s_mean += aux["support_gate"].mean().item() * frames.size(0)
         fa += false_alarm_loss(pred, target, frames, pwv, args).item() * frames.size(0)
+        if "object" in aux and (
+            args.lambda_object_center
+            + args.lambda_object_mask
+            + args.lambda_object_area
+            + args.lambda_object_intensity
+        ) > 0:
+            object_loss, _ = compute_object_loss(aux["object"], target, args)
+            obj += object_loss.item() * frames.size(0)
         seen += frames.size(0)
-    return total / max(seen, 1), c_mean / max(seen, 1), s_mean / max(seen, 1), fa / max(seen, 1)
+    return total / max(seen, 1), c_mean / max(seen, 1), s_mean / max(seen, 1), fa / max(seen, 1), obj / max(seen, 1)
 
 
 def save_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_loss, args):
@@ -303,7 +334,12 @@ def main():
 
     generator = build_generator(args)
     if args.init_generator:
-        load_generator_weights(generator, args.init_generator, args.device)
+        load_generator_weights(
+            generator,
+            args.init_generator,
+            args.device,
+            strict=not hasattr(generator, "object_head"),
+        )
         print("initialized generator from {}".format(args.init_generator), flush=True)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
     opt_g = torch.optim.Adam((p for p in generator.parameters() if p.requires_grad), lr=args.lr_g, betas=(args.beta1, args.beta2))
@@ -336,10 +372,11 @@ def main():
             args,
             facl_criterion=facl_criterion,
         )
-        val_loss, val_c_mean, val_support_mean, val_false_alarm = validate(generator, val_loader, args)
+        val_loss, val_c_mean, val_support_mean, val_false_alarm, val_object = validate(generator, val_loader, args)
         metrics["val_c_mean"] = val_c_mean
         metrics["val_support_mean"] = val_support_mean
         metrics["val_false_alarm"] = val_false_alarm
+        metrics["val_object"] = val_object
         append_epoch_log(save_dir / "train_log.csv", epoch, val_loss, metrics)
         write_training_plot(save_dir / "train_log.csv", save_dir / "train_log.png")
         metric_text = " ".join("{} {:.5f}".format(k, v) for k, v in sorted(metrics.items()))

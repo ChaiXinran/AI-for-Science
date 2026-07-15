@@ -26,6 +26,11 @@ EXPERIMENTS = {
         "sample": "results/pwv_v3_3h/sample_0000",
         "required": False,
     },
+    "PWV V3 Object": {
+        "metrics": "results/pwv_v3_object_3h/metrics.json",
+        "sample": "results/pwv_v3_object_3h/sample_0000",
+        "required": False,
+    },
     "PWV V4": {
         "metrics": "results/pwv_v4_3h/metrics.json",
         "sample": "results/pwv_v4_3h/sample_0000",
@@ -616,7 +621,11 @@ def save_sample_grid(run_root, out_dir):
             rows.append((f"Support {name}", lambda i, p=path: colorize_gray(p / f"s_{i:02d}.png", cmap="magma")))
         if (path / "a_00.png").exists():
             rows.append((f"Attention {name}", lambda i, p=path: colorize_gray(p / f"a_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
-    pwv_sample = existing.get("PWV V2") or existing.get("PWV V3") or existing.get("PWV V4")
+        if (path / "oc_00.png").exists():
+            rows.append((f"Object center {name}", lambda i, p=path: colorize_gray(p / f"oc_{i:02d}.png", cmap="magma", stretch=True)))
+        if (path / "om_00.png").exists():
+            rows.append((f"Object mask {name}", lambda i, p=path: colorize_gray(p / f"om_{i:02d}.png", cmap="magma", stretch=True)))
+    pwv_sample = existing.get("PWV V2") or existing.get("PWV V3") or existing.get("PWV V3 Object") or existing.get("PWV V4")
     if pwv_sample is not None and (pwv_sample / "pwv_00.png").exists():
         rows.append(("PWV input", lambda i, p=pwv_sample: colorize_gray(p / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
@@ -647,6 +656,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("model"),
             "pwv_v2": pwv.get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("model"),
             "pwv_coupling_mean": pwv.get("coupling_mean"),
             "pwv_coupling_std": pwv.get("coupling_std"),
@@ -661,6 +671,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("horizon_metrics", {}).get("model"),
             "pwv_v2": pwv.get("horizon_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("horizon_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("horizon_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("horizon_metrics", {}).get("model"),
         },
         "event_metrics": {
@@ -668,6 +679,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("event_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("event_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("event_metrics", {}).get("model"),
         },
         "extreme_thresholds": ref.get("extreme_thresholds"),
@@ -676,6 +688,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("extreme_event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("extreme_event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("extreme_event_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("extreme_event_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("extreme_event_metrics", {}).get("model"),
         },
         "intensity_bin_metrics": {
@@ -683,6 +696,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("intensity_bin_metrics", {}).get("model"),
             "pwv_v2": pwv.get("intensity_bin_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("intensity_bin_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("intensity_bin_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("intensity_bin_metrics", {}).get("model"),
         },
         "neighborhood_event_metrics": {
@@ -690,6 +704,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_event_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("neighborhood_event_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_event_metrics", {}).get("model"),
         },
         "fss": {
@@ -697,6 +712,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("fss", {}).get("model"),
             "pwv_v2": pwv.get("fss", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("fss", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("fss", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("fss", {}).get("model"),
         },
         "neighborhood_score": {
@@ -704,6 +720,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("neighborhood_score", {}).get("model"),
             "pwv_v2": pwv.get("neighborhood_score", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("neighborhood_score", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("neighborhood_score", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("neighborhood_score", {}).get("model"),
         },
         "pearson": {
@@ -711,6 +728,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("pearson", {}).get("model"),
             "pwv_v2": pwv.get("pearson", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("pearson", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("pearson", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("pearson", {}).get("model"),
         },
         "cra": {
@@ -718,6 +736,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("cra", {}).get("model"),
             "pwv_v2": pwv.get("cra", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("cra", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("cra", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("cra", {}).get("model"),
         },
         "object_metrics": {
@@ -725,6 +744,7 @@ def summarize(metrics, out_dir):
             "radar_only": metrics.get("Radar-only", {}).get("object_metrics", {}).get("model"),
             "pwv_v2": pwv.get("object_metrics", {}).get("model"),
             "pwv_v3": metrics.get("PWV V3", {}).get("object_metrics", {}).get("model"),
+            "pwv_v3_object": metrics.get("PWV V3 Object", {}).get("object_metrics", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("object_metrics", {}).get("model"),
         },
     }

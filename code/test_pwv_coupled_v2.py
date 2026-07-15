@@ -262,6 +262,11 @@ def main():
             coupling_np = coupling.detach().cpu().numpy()
             support_np = aux["support_gate"][:, :, 0].detach().cpu().numpy() if "support_gate" in aux else None
             attention_np = aux["pwv_temporal_attention"].detach().cpu().numpy() if "pwv_temporal_attention" in aux else None
+            object_center_np = None
+            object_mask_np = None
+            if "object" in aux:
+                object_center_np = torch.sigmoid(aux["object"]["center_logits"]).detach().cpu().numpy()
+                object_mask_np = torch.sigmoid(aux["object"]["mask_logits"]).detach().cpu().numpy()
             extreme_arrays = {
                 "input": input_np[:, :args.input_length],
                 "pwv": pwv_np[:, :args.input_length],
@@ -271,6 +276,9 @@ def main():
                 extreme_arrays["support"] = support_np
             if attention_np is not None:
                 extreme_arrays["attention"] = attention_np
+            if object_center_np is not None:
+                extreme_arrays["object_center"] = object_center_np
+                extreme_arrays["object_mask"] = object_mask_np
             update_extreme_cases(
                 extreme_cases,
                 args.num_extreme_cases,
@@ -296,6 +304,9 @@ def main():
                     save_sequence(sample_dir, "s_", support_np[i], 1.0, 0.0, 255.0, False)
                 if attention_np is not None:
                     save_sequence(sample_dir, "a_", attention_np[i], 1.0, 0.0, 255.0, False)
+                if object_center_np is not None:
+                    save_sequence(sample_dir, "oc_", object_center_np[i], 1.0, 0.0, 255.0, False)
+                    save_sequence(sample_dir, "om_", object_mask_np[i], 1.0, 0.0, 255.0, False)
                 saved += 1
 
             print("tested batch {}".format(batch_id + 1), flush=True)

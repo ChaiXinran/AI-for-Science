@@ -90,6 +90,10 @@ def save_sample_grid(args, out_dir):
             rows.append((f"Coupling {label}", lambda i, p=path: colorize_gray(p / f"c_{i:02d}.png", cmap="magma")))
         if (path / "s_00.png").exists():
             rows.append((f"Support {label}", lambda i, p=path: colorize_gray(p / f"s_{i:02d}.png", cmap="magma")))
+        if (path / "oc_00.png").exists():
+            rows.append((f"Object center {label}", lambda i, p=path: colorize_gray(p / f"oc_{i:02d}.png", cmap="magma", stretch=True)))
+        if (path / "om_00.png").exists():
+            rows.append((f"Object mask {label}", lambda i, p=path: colorize_gray(p / f"om_{i:02d}.png", cmap="magma", stretch=True)))
     if (new_sample / "pwv_00.png").exists():
         rows.append(("PWV input", lambda i: colorize_gray(new_sample / f"pwv_{min(i, 8):02d}.png", cmap="viridis", stretch=True)))
 
