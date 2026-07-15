@@ -15,6 +15,11 @@ from nowcasting.experiments.common import (
     save_json_args,
     seed_everything,
 )
+from nowcasting.facl import (
+    add_facl_args,
+    build_facl_loss,
+    compute_forecast_reconstruction_loss,
+)
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 
 try:
@@ -81,6 +86,7 @@ def build_parser():
     parser.add_argument("--init_generator", type=str, default="")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
+    add_facl_args(parser)
     return parser
 
 
@@ -119,12 +125,19 @@ def discriminator_sequence(seq, intensity_scale):
     return torch.clamp(seq / max(float(intensity_scale), 1.0), 0.0, 1.0)
 
 
-def generator_losses(aux, target, discriminator, args):
+def generator_losses(aux, target, discriminator, args, facl_criterion=None, global_step=0):
     pred = aux["prediction"][..., 0]
     evo = aux["evolution"] * args.intensity_scale
     advected = aux["advected"]
 
-    forecast_loss = weighted_l1(pred, target, args.intensity_scale)
+    forecast_loss, forecast_parts = compute_forecast_reconstruction_loss(
+        pred,
+        target,
+        args,
+        weighted_l1,
+        facl_criterion=facl_criterion,
+        global_step=global_step,
+    )
     evolution_loss = weighted_l1(evo, target, args.intensity_scale)
     advected_loss = weighted_l1(advected, target, args.intensity_scale)
     motion_loss = motion_regularization(aux["motion"], target, args.intensity_scale)
@@ -149,10 +162,11 @@ def generator_losses(aux, target, discriminator, args):
         "pool": pool_loss.detach(),
         "g_adv": adv_loss.detach(),
     }
+    parts.update({key: value.detach() for key, value in forecast_parts.items()})
     return total, parts
 
 
-def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, scaler_d, args):
+def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, scaler_d, args, facl_criterion=None):
     generator.train()
     discriminator.train()
     totals = {}
@@ -180,13 +194,22 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
         opt_g.zero_grad(set_to_none=True)
         with autocast_context(args.device, args.amp):
             aux = generator(frames, return_aux=True)
-            g_loss, parts = generator_losses(aux, target, discriminator, args)
+            global_step = getattr(args, "global_step", 0)
+            g_loss, parts = generator_losses(
+                aux,
+                target,
+                discriminator,
+                args,
+                facl_criterion=facl_criterion,
+                global_step=global_step,
+            )
         scaler_g.scale(g_loss).backward()
         if args.grad_clip > 0:
             scaler_g.unscale_(opt_g)
             torch.nn.utils.clip_grad_norm_(generator.parameters(), args.grad_clip)
         scaler_g.step(opt_g)
         scaler_g.update()
+        args.global_step = global_step + 1
         for param in discriminator.parameters():
             param.requires_grad_(True)
 
@@ -292,6 +315,7 @@ def main():
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))
     scaler_g = make_grad_scaler(args.device, args.amp)
     scaler_d = make_grad_scaler(args.device, args.amp)
+    facl_criterion = build_facl_loss(args, max(args.epochs * len(train_loader), 1))
 
     start_epoch = 1
     best_val = float("inf")
@@ -303,9 +327,20 @@ def main():
         opt_d.load_state_dict(checkpoint["optimizer_d"])
         start_epoch = int(checkpoint.get("epoch", 0)) + 1
         best_val = float(checkpoint.get("val_loss", best_val))
+    args.global_step = (start_epoch - 1) * len(train_loader)
 
     for epoch in range(start_epoch, args.epochs + 1):
-        metrics = train_one_epoch(generator, discriminator, train_loader, opt_g, opt_d, scaler_g, scaler_d, args)
+        metrics = train_one_epoch(
+            generator,
+            discriminator,
+            train_loader,
+            opt_g,
+            opt_d,
+            scaler_g,
+            scaler_d,
+            args,
+            facl_criterion=facl_criterion,
+        )
         val_loss = validate(generator, val_loader, args)
         append_epoch_log(save_dir / "train_log.csv", epoch, val_loss, metrics)
         write_training_plot(save_dir / "train_log.csv", save_dir / "train_log.png")

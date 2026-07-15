@@ -15,6 +15,9 @@ PRECIP_ROOT="${PRECIP_ROOT:-${RAIN_ROOT:-${RADAR_ROOT}}}"
 PWV_ROOT="${PWV_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "PWV_2025_S" "*PWV*")}"
 PRECIP_SCALE="${PRECIP_SCALE:-35}"
 PWV_SCALE="${PWV_SCALE:-80}"
+FORECAST_LOSS="${FORECAST_LOSS:-weighted_l1}"
+FACL_ALPHA="${FACL_ALPHA:-0.1}"
+FACL_REDUCTION="${FACL_REDUCTION:-official}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/checkpoints"
 print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
@@ -43,6 +46,9 @@ python -u train_pwv_coupled_v3.py \
     --intensity_scale "${PRECIP_SCALE}" \
     --pixel_min 0 \
     --pixel_max 255 \
+    --forecast_loss "${FORECAST_LOSS}" \
+    --facl_alpha "${FACL_ALPHA}" \
+    --facl_reduction "${FACL_REDUCTION}" \
     --pwv_intensity_scale "${PWV_SCALE}" \
     --pwv_pixel_min 0 \
     --pwv_pixel_max 255 \

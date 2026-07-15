@@ -13,6 +13,9 @@ RADAR_ROOT="${RADAR_ROOT:-$(resolve_dataset_dir "${DATA_ROOT}" "RADAR_2025_S" "*
 RAIN_ROOT="${RAIN_ROOT:-$(try_resolve_dataset_dir "${DATA_ROOT}" "RAIN_2025_S" "*RAIN*" || true)}"
 PRECIP_ROOT="${PRECIP_ROOT:-${RAIN_ROOT:-${RADAR_ROOT}}}"
 PRECIP_SCALE="${PRECIP_SCALE:-35}"
+FORECAST_LOSS="${FORECAST_LOSS:-weighted_l1}"
+FACL_ALPHA="${FACL_ALPHA:-0.1}"
+FACL_REDUCTION="${FACL_REDUCTION:-official}"
 
 mkdir -p "${RUN_ROOT}/logs" "${RUN_ROOT}/checkpoints"
 print_dataset_dir "RADAR_ROOT" "${RADAR_ROOT}"
@@ -38,6 +41,9 @@ python -u train_adversarial_custom.py \
     --intensity_scale "${PRECIP_SCALE}" \
     --pixel_min 0 \
     --pixel_max 255 \
+    --forecast_loss "${FORECAST_LOSS}" \
+    --facl_alpha "${FACL_ALPHA}" \
+    --facl_reduction "${FACL_REDUCTION}" \
     --disc_channels 32 \
     --lead_time_embed_dim 16 \
     --lambda_forecast 1.0 \

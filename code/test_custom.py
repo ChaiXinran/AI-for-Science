@@ -62,6 +62,9 @@ def build_parser():
     parser.add_argument("--cra_thresholds", type=str, default="16")
     parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--cra_max_shift", type=int, default=12)
+    parser.add_argument("--object_thresholds", type=str, default="16")
+    parser.add_argument("--object_min_area", type=int, default=4)
+    parser.add_argument("--object_iou_threshold", type=float, default=0.1)
     parser.add_argument("--no_invert", action="store_true")
     return parser
 
@@ -851,6 +854,251 @@ def pearson_corr_np(a, b):
     return float(np.sum(a * b) / den)
 
 
+def component_objects(field, threshold, min_area):
+    field = np.asarray(field, dtype="float64")
+    mask = field >= threshold
+    if not np.any(mask):
+        return []
+    if cv2 is not None:
+        count, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            mask.astype(np.uint8), connectivity=8
+        )
+        objects = []
+        for label in range(1, count):
+            area = int(stats[label, cv2.CC_STAT_AREA])
+            if area < min_area:
+                continue
+            obj_mask = labels == label
+            values = field[obj_mask]
+            y_indices, x_indices = np.nonzero(obj_mask)
+            intensity_sum = float(values.sum())
+            if intensity_sum > 1e-12:
+                centroid_x = float((x_indices * values).sum() / intensity_sum)
+                centroid_y = float((y_indices * values).sum() / intensity_sum)
+            else:
+                centroid_x = float(centroids[label][0])
+                centroid_y = float(centroids[label][1])
+            objects.append(
+                {
+                    "mask": obj_mask,
+                    "area": area,
+                    "centroid_x": centroid_x,
+                    "centroid_y": centroid_y,
+                    "mean_intensity": float(values.mean()),
+                    "max_intensity": float(values.max()),
+                    "intensity_sum": intensity_sum,
+                }
+            )
+        return objects
+
+    visited = np.zeros(mask.shape, dtype=bool)
+    objects = []
+    height, width = mask.shape
+    for y in range(height):
+        for x in range(width):
+            if not mask[y, x] or visited[y, x]:
+                continue
+            stack = [(y, x)]
+            visited[y, x] = True
+            pixels = []
+            while stack:
+                cy, cx = stack.pop()
+                pixels.append((cy, cx))
+                for ny in range(max(0, cy - 1), min(height, cy + 2)):
+                    for nx in range(max(0, cx - 1), min(width, cx + 2)):
+                        if mask[ny, nx] and not visited[ny, nx]:
+                            visited[ny, nx] = True
+                            stack.append((ny, nx))
+            if len(pixels) < min_area:
+                continue
+            obj_mask = np.zeros(mask.shape, dtype=bool)
+            ys = np.array([item[0] for item in pixels], dtype="int64")
+            xs = np.array([item[1] for item in pixels], dtype="int64")
+            obj_mask[ys, xs] = True
+            values = field[obj_mask]
+            intensity_sum = float(values.sum())
+            if intensity_sum > 1e-12:
+                centroid_x = float((xs * values).sum() / intensity_sum)
+                centroid_y = float((ys * values).sum() / intensity_sum)
+            else:
+                centroid_x = float(xs.mean())
+                centroid_y = float(ys.mean())
+            objects.append(
+                {
+                    "mask": obj_mask,
+                    "area": int(len(pixels)),
+                    "centroid_x": centroid_x,
+                    "centroid_y": centroid_y,
+                    "mean_intensity": float(values.mean()),
+                    "max_intensity": float(values.max()),
+                    "intensity_sum": intensity_sum,
+                }
+            )
+    return objects
+
+
+def object_iou(pred_object, target_object):
+    intersection = int(np.logical_and(pred_object["mask"], target_object["mask"]).sum())
+    union = pred_object["area"] + target_object["area"] - intersection
+    return safe_divide(intersection, union)
+
+
+def match_component_objects(pred_objects, target_objects, iou_threshold):
+    candidates = []
+    for pred_index, pred_object in enumerate(pred_objects):
+        for target_index, target_object in enumerate(target_objects):
+            iou = object_iou(pred_object, target_object)
+            if iou >= iou_threshold:
+                candidates.append((iou, pred_index, target_index))
+    candidates.sort(reverse=True)
+    used_pred = set()
+    used_target = set()
+    matches = []
+    for iou, pred_index, target_index in candidates:
+        if pred_index in used_pred or target_index in used_target:
+            continue
+        used_pred.add(pred_index)
+        used_target.add(target_index)
+        matches.append((pred_index, target_index, iou))
+    return matches
+
+
+def init_object_totals():
+    return {
+        "frames": 0,
+        "observed_objects": 0,
+        "predicted_objects": 0,
+        "matched_objects": 0,
+        "missed_objects": 0,
+        "false_alarm_objects": 0,
+        "centroid_distance_pixels": [],
+        "centroid_distance_km": [],
+        "iou": [],
+        "area_error_pixels": [],
+        "area_abs_error_pixels": [],
+        "area_ratio": [],
+        "mean_intensity_error": [],
+        "max_intensity_error": [],
+        "intensity_sum_ratio": [],
+    }
+
+
+def update_object_totals(totals, pred_field, target_field, threshold, min_area, iou_threshold, grid_km):
+    pred_objects = component_objects(pred_field, threshold, min_area)
+    target_objects = component_objects(target_field, threshold, min_area)
+    matches = match_component_objects(pred_objects, target_objects, iou_threshold)
+
+    totals["frames"] += 1
+    totals["observed_objects"] += len(target_objects)
+    totals["predicted_objects"] += len(pred_objects)
+    totals["matched_objects"] += len(matches)
+    totals["missed_objects"] += len(target_objects) - len(matches)
+    totals["false_alarm_objects"] += len(pred_objects) - len(matches)
+
+    for pred_index, target_index, iou in matches:
+        pred_object = pred_objects[pred_index]
+        target_object = target_objects[target_index]
+        dx = pred_object["centroid_x"] - target_object["centroid_x"]
+        dy = pred_object["centroid_y"] - target_object["centroid_y"]
+        distance = float((dx * dx + dy * dy) ** 0.5)
+        area_error = pred_object["area"] - target_object["area"]
+        totals["centroid_distance_pixels"].append(distance)
+        totals["centroid_distance_km"].append(distance * grid_km)
+        totals["iou"].append(float(iou))
+        totals["area_error_pixels"].append(float(area_error))
+        totals["area_abs_error_pixels"].append(float(abs(area_error)))
+        totals["area_ratio"].append(safe_divide(pred_object["area"], target_object["area"]))
+        totals["mean_intensity_error"].append(
+            pred_object["mean_intensity"] - target_object["mean_intensity"]
+        )
+        totals["max_intensity_error"].append(
+            pred_object["max_intensity"] - target_object["max_intensity"]
+        )
+        totals["intensity_sum_ratio"].append(
+            safe_divide(pred_object["intensity_sum"], target_object["intensity_sum"])
+        )
+
+
+def finalize_object_totals(totals):
+    observed = totals["observed_objects"]
+    predicted = totals["predicted_objects"]
+    matched = totals["matched_objects"]
+    return {
+        "frames": totals["frames"],
+        "observed_objects": observed,
+        "predicted_objects": predicted,
+        "matched_objects": matched,
+        "missed_objects": totals["missed_objects"],
+        "false_alarm_objects": totals["false_alarm_objects"],
+        "object_pod": safe_divide(matched, observed),
+        "object_far": safe_divide(totals["false_alarm_objects"], predicted),
+        "object_csi": safe_divide(
+            matched,
+            matched + totals["missed_objects"] + totals["false_alarm_objects"],
+        ),
+        "object_bias": safe_divide(predicted, observed),
+        "matched": {
+            "centroid_distance_pixels": nan_summary(totals["centroid_distance_pixels"]),
+            "centroid_distance_km": nan_summary(totals["centroid_distance_km"]),
+            "iou": nan_summary(totals["iou"]),
+            "area_error_pixels": nan_summary(totals["area_error_pixels"]),
+            "area_abs_error_pixels": nan_summary(totals["area_abs_error_pixels"]),
+            "area_ratio": nan_summary(totals["area_ratio"]),
+            "mean_intensity_error": nan_summary(totals["mean_intensity_error"]),
+            "max_intensity_error": nan_summary(totals["max_intensity_error"]),
+            "intensity_sum_ratio": nan_summary(totals["intensity_sum_ratio"]),
+        },
+    }
+
+
+def init_object_store(thresholds, pred_length):
+    return {
+        threshold_key(thr): {
+            "threshold": float(thr),
+            "overall": init_object_totals(),
+            "lead": [init_object_totals() for _ in range(pred_length)],
+        }
+        for thr in thresholds
+    }
+
+
+def update_object_store(store, pred, target, thresholds, min_area, iou_threshold, grid_km):
+    pred_np = pred.detach().cpu().numpy()
+    target_np = target.detach().cpu().numpy()
+    for threshold in thresholds:
+        key = threshold_key(threshold)
+        for batch_index in range(pred_np.shape[0]):
+            for lead_index in range(pred_np.shape[1]):
+                kwargs = (
+                    pred_np[batch_index, lead_index],
+                    target_np[batch_index, lead_index],
+                    threshold,
+                    min_area,
+                    iou_threshold,
+                    grid_km,
+                )
+                update_object_totals(store[key]["overall"], *kwargs)
+                update_object_totals(store[key]["lead"][lead_index], *kwargs)
+
+
+def summarize_object_store(store, frame_minutes):
+    summary = {}
+    for threshold, values in store.items():
+        summary[threshold] = {
+            "threshold": values["threshold"],
+            "overall": finalize_object_totals(values["overall"]),
+            "lead_time": [
+                {
+                    "lead_index": index + 1,
+                    "lead_minutes": (index + 1) * frame_minutes,
+                    **finalize_object_totals(totals),
+                }
+                for index, totals in enumerate(values["lead"])
+            ],
+        }
+    return summary
+
+
 def cra_one_field(pred, target, threshold, max_shift, grid_km):
     pred_np = np.asarray(pred, dtype="float64")
     target_np = np.asarray(target, dtype="float64")
@@ -1029,6 +1277,7 @@ def main():
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
     cra_thresholds = parse_thresholds(args.cra_thresholds)
     cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
+    object_thresholds = parse_thresholds(args.object_thresholds)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
     model_extreme_event_counts = init_labeled_event_counts(extreme_items)
@@ -1050,6 +1299,8 @@ def main():
     persistence_eventwise = init_eventwise_store(thresholds)
     model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
     persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    model_objects = init_object_store(object_thresholds, args.gen_oc)
+    persistence_objects = init_object_store(object_thresholds, args.gen_oc)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
 
@@ -1082,6 +1333,8 @@ def main():
             update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
             update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
             update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+            update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+            update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
@@ -1131,6 +1384,9 @@ def main():
         "cra_thresholds": cra_thresholds,
         "cra_lead_minutes": cra_lead_minutes,
         "cra_max_shift": args.cra_max_shift,
+        "object_thresholds": object_thresholds,
+        "object_min_area": args.object_min_area,
+        "object_iou_threshold": args.object_iou_threshold,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -1176,6 +1432,10 @@ def main():
         "cra": {
             "model": summarize_cra_store(model_cra),
             "persistence": summarize_cra_store(persistence_cra),
+        },
+        "object_metrics": {
+            "model": summarize_object_store(model_objects, args.frame_minutes),
+            "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:

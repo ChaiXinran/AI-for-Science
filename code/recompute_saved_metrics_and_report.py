@@ -50,6 +50,7 @@ from test_custom import (
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
+    init_object_store,
     init_pearson_totals,
     init_psd_totals,
     init_scalar_totals,
@@ -61,6 +62,7 @@ from test_custom import (
     threshold_items_from_quantiles,
     summarize_cra_store,
     summarize_eventwise_store,
+    summarize_object_store,
     update_cra_store,
     update_event_counts,
     update_eventwise_store,
@@ -69,6 +71,7 @@ from test_custom import (
     update_labeled_event_counts,
     update_lead_and_horizon,
     update_neighborhood_event_counts,
+    update_object_store,
     update_pearson_totals,
     update_psd_totals,
     update_scalar_totals,
@@ -122,6 +125,9 @@ def build_parser():
     parser.add_argument("--cra_thresholds", type=str, default="16")
     parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--cra_max_shift", type=int, default=12)
+    parser.add_argument("--object_thresholds", type=str, default="16")
+    parser.add_argument("--object_min_area", type=int, default=4)
+    parser.add_argument("--object_iou_threshold", type=float, default=0.1)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument(
         "--only_with_metrics",
@@ -287,6 +293,7 @@ def recompute_metrics(result_dir, args):
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
     cra_thresholds = parse_thresholds(args.cra_thresholds)
     cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
+    object_thresholds = parse_thresholds(args.object_thresholds)
     extreme_quantiles = parse_float_list(args.extreme_quantiles)
     intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
     quantile_info = compute_quantile_info(
@@ -327,6 +334,8 @@ def recompute_metrics(result_dir, args):
     persistence_eventwise = init_eventwise_store(thresholds)
     model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
     persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    model_objects = init_object_store(object_thresholds, pred_length)
+    persistence_objects = init_object_store(object_thresholds, pred_length)
 
     device = torch.device(args.device)
     for _, pred_np, target_np, persistence_np in batches:
@@ -383,6 +392,8 @@ def recompute_metrics(result_dir, args):
         update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
         update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
         update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+        update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+        update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
 
     model_neighborhood_metrics = finalize_neighborhood_metrics(model_neighborhood_counts)
     persistence_neighborhood_metrics = finalize_neighborhood_metrics(persistence_neighborhood_counts)
@@ -410,6 +421,9 @@ def recompute_metrics(result_dir, args):
         "cra_thresholds": cra_thresholds,
         "cra_lead_minutes": cra_lead_minutes,
         "cra_max_shift": args.cra_max_shift,
+        "object_thresholds": object_thresholds,
+        "object_min_area": args.object_min_area,
+        "object_iou_threshold": args.object_iou_threshold,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -455,6 +469,10 @@ def recompute_metrics(result_dir, args):
         "cra": {
             "model": summarize_cra_store(model_cra),
             "persistence": summarize_cra_store(persistence_cra),
+        },
+        "object_metrics": {
+            "model": summarize_object_store(model_objects, args.frame_minutes),
+            "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
     }
     return metrics
@@ -608,6 +626,7 @@ def save_summary(metrics_by_label, manifest_rows, out_dir):
             "pearson": metrics.get("pearson", {}).get("model"),
             "eventwise": metrics.get("eventwise", {}).get("model"),
             "cra": metrics.get("cra", {}).get("model"),
+            "object_metrics": metrics.get("object_metrics", {}).get("model"),
         }
     with open(out_dir / "summary_recomputed.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)

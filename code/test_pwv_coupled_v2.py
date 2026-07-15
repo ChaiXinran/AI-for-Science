@@ -33,6 +33,7 @@ from test_custom import (
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
+    init_object_store,
     init_pearson_totals,
     init_psd_totals,
     init_scalar_totals,
@@ -46,6 +47,7 @@ from test_custom import (
     threshold_items_from_quantiles,
     summarize_cra_store,
     summarize_eventwise_store,
+    summarize_object_store,
     update_event_counts,
     update_cra_store,
     update_eventwise_store,
@@ -55,6 +57,7 @@ from test_custom import (
     update_labeled_event_counts,
     update_lead_and_horizon,
     update_neighborhood_event_counts,
+    update_object_store,
     update_pearson_totals,
     update_psd_totals,
     update_scalar_totals,
@@ -119,6 +122,9 @@ def build_parser():
     parser.add_argument("--cra_thresholds", type=str, default="16")
     parser.add_argument("--cra_lead_minutes", type=str, default="60,120,180")
     parser.add_argument("--cra_max_shift", type=int, default=12)
+    parser.add_argument("--object_thresholds", type=str, default="16")
+    parser.add_argument("--object_min_area", type=int, default=4)
+    parser.add_argument("--object_iou_threshold", type=float, default=0.1)
     return parser
 
 
@@ -162,6 +168,7 @@ def main():
     psd_wavelengths = parse_float_list(args.psd_wavelengths)
     cra_thresholds = parse_thresholds(args.cra_thresholds)
     cra_lead_minutes = parse_float_list(args.cra_lead_minutes)
+    object_thresholds = parse_thresholds(args.object_thresholds)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
     model_extreme_event_counts = init_labeled_event_counts(extreme_items)
@@ -183,6 +190,8 @@ def main():
     persistence_eventwise = init_eventwise_store(thresholds)
     model_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
     persistence_cra = init_cra_store(cra_thresholds, cra_lead_minutes)
+    model_objects = init_object_store(object_thresholds, args.gen_oc)
+    persistence_objects = init_object_store(object_thresholds, args.gen_oc)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
     coupling_sum = 0.0
@@ -227,6 +236,8 @@ def main():
             update_eventwise_store(persistence_eventwise, persistence, target, thresholds)
             update_cra_store(model_cra, pred, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
             update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
+            update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+            update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
             coupling_sum += coupling.sum().item()
             coupling_sq_sum += (coupling * coupling).sum().item()
             coupling_count += coupling.numel()
@@ -325,6 +336,9 @@ def main():
         "cra_thresholds": cra_thresholds,
         "cra_lead_minutes": cra_lead_minutes,
         "cra_max_shift": args.cra_max_shift,
+        "object_thresholds": object_thresholds,
+        "object_min_area": args.object_min_area,
+        "object_iou_threshold": args.object_iou_threshold,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -370,6 +384,10 @@ def main():
         "cra": {
             "model": summarize_cra_store(model_cra),
             "persistence": summarize_cra_store(persistence_cra),
+        },
+        "object_metrics": {
+            "model": summarize_object_store(model_objects, args.frame_minutes),
+            "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:

@@ -9,6 +9,7 @@ from nowcasting.experiments.common import (
     save_adversarial_checkpoint,
     save_json_args,
 )
+from nowcasting.facl import build_facl_loss, compute_forecast_reconstruction_loss
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 from train_adversarial_custom import (
     append_epoch_log,
@@ -74,14 +75,21 @@ def support_dry_loss(support_gate, target, frames, pwv, args):
     return (support * mask).sum() / mask.sum().clamp_min(1.0)
 
 
-def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
+def generator_losses(generator, frames, pwv, aux, target, discriminator, args, facl_criterion=None, global_step=0):
     pred = aux["prediction"][..., 0]
     evo = aux["evolution"] * args.intensity_scale
     advected = aux["advected"]
     coupling = aux["coupling"]
     support_gate = aux["support_gate"]
 
-    forecast_loss = weighted_l1(pred, target, args.intensity_scale)
+    forecast_loss, forecast_parts = compute_forecast_reconstruction_loss(
+        pred,
+        target,
+        args,
+        weighted_l1,
+        facl_criterion=facl_criterion,
+        global_step=global_step,
+    )
     evolution_loss = weighted_l1(evo, target, args.intensity_scale)
     advected_loss = weighted_l1(advected, target, args.intensity_scale)
     motion_loss = motion_regularization(aux["motion"], target, args.intensity_scale)
@@ -127,10 +135,11 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args):
         "false_alarm": fa_loss.detach(),
         "support_dry": dry_support_loss.detach(),
     }
+    parts.update({key: value.detach() for key, value in forecast_parts.items()})
     return total, parts
 
 
-def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, scaler_d, args):
+def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, scaler_d, args, facl_criterion=None):
     generator.train()
     discriminator.train()
     totals = {}
@@ -159,13 +168,25 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
         opt_g.zero_grad(set_to_none=True)
         with autocast_context(args.device, args.amp):
             aux = generator(frames, pwv, return_aux=True)
-            g_loss, parts = generator_losses(generator, frames, pwv, aux, target, discriminator, args)
+            global_step = getattr(args, "global_step", 0)
+            g_loss, parts = generator_losses(
+                generator,
+                frames,
+                pwv,
+                aux,
+                target,
+                discriminator,
+                args,
+                facl_criterion=facl_criterion,
+                global_step=global_step,
+            )
         scaler_g.scale(g_loss).backward()
         if args.grad_clip > 0:
             scaler_g.unscale_(opt_g)
             torch.nn.utils.clip_grad_norm_(generator.parameters(), args.grad_clip)
         scaler_g.step(opt_g)
         scaler_g.update()
+        args.global_step = global_step + 1
         for param in discriminator.parameters():
             param.requires_grad_(True)
 
@@ -235,6 +256,7 @@ def main():
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))
     scaler_g = make_grad_scaler(args.device, args.amp)
     scaler_d = make_grad_scaler(args.device, args.amp)
+    facl_criterion = build_facl_loss(args, max(args.epochs * len(train_loader), 1))
 
     start_epoch = 1
     best_val = float("inf")
@@ -246,9 +268,20 @@ def main():
         opt_d.load_state_dict(checkpoint["optimizer_d"])
         start_epoch = int(checkpoint.get("epoch", 0)) + 1
         best_val = float(checkpoint.get("val_loss", best_val))
+    args.global_step = (start_epoch - 1) * len(train_loader)
 
     for epoch in range(start_epoch, args.epochs + 1):
-        metrics = train_one_epoch(generator, discriminator, train_loader, opt_g, opt_d, scaler_g, scaler_d, args)
+        metrics = train_one_epoch(
+            generator,
+            discriminator,
+            train_loader,
+            opt_g,
+            opt_d,
+            scaler_g,
+            scaler_d,
+            args,
+            facl_criterion=facl_criterion,
+        )
         val_loss, val_c_mean, val_support_mean, val_false_alarm = validate(generator, val_loader, args)
         metrics["val_c_mean"] = val_c_mean
         metrics["val_support_mean"] = val_support_mean

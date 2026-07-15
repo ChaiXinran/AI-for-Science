@@ -27,6 +27,7 @@ from test_custom import (
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
+    init_object_store,
     init_scalar_totals,
     parse_float_list,
     parse_horizon_bins,
@@ -35,6 +36,7 @@ from test_custom import (
     quantile_label,
     save_extreme_cases,
     save_sequence,
+    summarize_object_store,
     threshold_items_from_quantiles,
     update_event_counts,
     update_extreme_cases,
@@ -42,6 +44,7 @@ from test_custom import (
     update_intensity_bin_totals,
     update_labeled_event_counts,
     update_lead_and_horizon,
+    update_object_store,
     update_scalar_totals,
 )
 
@@ -87,6 +90,9 @@ def build_parser():
     parser.add_argument("--fss_neighborhood_sizes", type=str, default="1,3,5,9,15")
     parser.add_argument("--num_extreme_cases", type=int, default=5)
     parser.add_argument("--grid_km", type=float, default=1.0)
+    parser.add_argument("--object_thresholds", type=str, default="16")
+    parser.add_argument("--object_min_area", type=int, default=4)
+    parser.add_argument("--object_iou_threshold", type=float, default=0.1)
     parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--horizon_bins", type=str, default="0-1,1-2,2-3,3-6")
     return parser
@@ -126,6 +132,7 @@ def main():
     model_totals = init_scalar_totals()
     persistence_totals = init_scalar_totals()
     thresholds = parse_thresholds(args.metric_thresholds)
+    object_thresholds = parse_thresholds(args.object_thresholds)
     horizon_bins = parse_horizon_bins(args.horizon_bins)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
@@ -139,6 +146,8 @@ def main():
     persistence_intensity_bin_totals = init_intensity_bin_totals(intensity_bins)
     model_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
     persistence_fss_totals = init_fss_totals(fss_items, fss_neighborhood_sizes)
+    model_objects = init_object_store(object_thresholds, args.gen_oc)
+    persistence_objects = init_object_store(object_thresholds, args.gen_oc)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
     coupling_sum = 0.0
@@ -168,6 +177,8 @@ def main():
             update_intensity_bin_totals(persistence_intensity_bin_totals, persistence, target, intensity_bins)
             update_fss_totals(model_fss_totals, pred, target, fss_items, fss_neighborhood_sizes)
             update_fss_totals(persistence_fss_totals, persistence, target, fss_items, fss_neighborhood_sizes)
+            update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+            update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
             coupling_sum += coupling.sum().item()
             coupling_count += coupling.numel()
 
@@ -224,6 +235,9 @@ def main():
         "thresholds": thresholds,
         "extreme_thresholds": quantile_info,
         "fss_neighborhood_sizes": fss_neighborhood_sizes,
+        "object_thresholds": object_thresholds,
+        "object_min_area": args.object_min_area,
+        "object_iou_threshold": args.object_iou_threshold,
         "frame_minutes": args.frame_minutes,
         "lead_time_metrics": {
             "model": finalize_lead_metrics(model_lead_totals, args.frame_minutes),
@@ -248,6 +262,10 @@ def main():
         "fss": {
             "model": finalize_fss_metrics(model_fss_totals, fss_items, args.grid_km),
             "persistence": finalize_fss_metrics(persistence_fss_totals, fss_items, args.grid_km),
+        },
+        "object_metrics": {
+            "model": summarize_object_store(model_objects, args.frame_minutes),
+            "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:

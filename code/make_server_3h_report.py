@@ -652,6 +652,13 @@ def summarize(metrics, out_dir):
             "pwv_v3": metrics.get("PWV V3", {}).get("cra", {}).get("model"),
             "pwv_v4": metrics.get("PWV V4", {}).get("cra", {}).get("model"),
         },
+        "object_metrics": {
+            "persistence": ref.get("object_metrics", {}).get("persistence"),
+            "radar_only": metrics.get("Radar-only", {}).get("object_metrics", {}).get("model"),
+            "pwv_v2": pwv.get("object_metrics", {}).get("model"),
+            "pwv_v3": metrics.get("PWV V3", {}).get("object_metrics", {}).get("model"),
+            "pwv_v4": metrics.get("PWV V4", {}).get("object_metrics", {}).get("model"),
+        },
     }
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)

@@ -143,6 +143,10 @@ def summarize(metrics, args, out_dir):
         "pwv_temporal_attention_mean": new.get("pwv_temporal_attention_mean"),
         "horizon_delta_new_minus_baseline": {},
         "threshold_delta_new_minus_baseline": {},
+        "object_metrics": {
+            "baseline": baseline.get("object_metrics", {}).get("model"),
+            "new": new.get("object_metrics", {}).get("model"),
+        },
     }
     for horizon, base_values in baseline.get("horizon_metrics", {}).get("model", {}).items():
         new_values = new.get("horizon_metrics", {}).get("model", {}).get(horizon)
