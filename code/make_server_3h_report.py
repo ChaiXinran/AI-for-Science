@@ -266,6 +266,74 @@ def save_cra(metrics, out_dir):
         plt.close(fig)
 
 
+def nested_value(data, path, default=np.nan):
+    value = data
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
+def object_series_for_threshold(metrics, threshold):
+    ref = reference_data(metrics)
+    series = {}
+    persistence = ref.get("object_metrics", {}).get("persistence", {}).get(threshold)
+    if persistence:
+        series["Persistence"] = persistence
+    for name, data in metrics.items():
+        values = data.get("object_metrics", {}).get("model", {}).get(threshold)
+        if values:
+            series[name] = values
+    return series
+
+
+def save_object_metrics(metrics, out_dir):
+    if not any("object_metrics" in data for data in metrics.values()):
+        return
+    ref = reference_data(metrics)
+    object_ref = ref.get("object_metrics", {}).get("model", {})
+    if not object_ref:
+        return
+
+    panels = [
+        (("object_csi",), "Object CSI, higher is better", "score"),
+        (("object_pod",), "Object POD, higher is better", "score"),
+        (("object_far",), "Object FAR, lower is better", "score"),
+        (("object_bias",), "Object count bias", "ratio"),
+        (("matched", "centroid_distance_km", "median"), "Matched centroid distance", "km"),
+        (("matched", "iou", "median"), "Matched IoU, higher is better", "IoU"),
+    ]
+
+    for threshold in object_ref.keys():
+        series = object_series_for_threshold(metrics, threshold)
+        if not series:
+            continue
+        fig, axes = plt.subplots(2, 3, figsize=(13.0, 7.0), dpi=180, sharex=True)
+        for ax, (path, title, ylabel) in zip(axes.ravel(), panels):
+            for name, values in series.items():
+                lead_items = values.get("lead_time", [])
+                if not lead_items:
+                    continue
+                x = [item["lead_minutes"] / 60.0 for item in lead_items]
+                y = [nested_value(item, path) for item in lead_items]
+                ax.plot(x, y, marker="o", markersize=3.2, linewidth=2.0, label=name)
+            draw_horizon_band(ax)
+            ax.set_title(title)
+            ax.set_ylabel(ylabel)
+            if path[-1] in ("object_csi", "object_pod", "object_far") or path == ("matched", "iou", "median"):
+                ax.set_ylim(-0.05, 1.05)
+            ax.grid(True, alpha=0.25)
+        for ax in axes[-1, :]:
+            ax.set_xlabel("Lead time (hours)")
+        axes[0, 0].legend(frameon=False, fontsize=8)
+        fig.suptitle(f"Object-based metrics at {float(threshold):g} mm/h", y=1.02)
+        fig.tight_layout()
+        suffix = threshold.replace(".", "p")
+        fig.savefig(out_dir / f"object_metrics_threshold_{suffix}.png")
+        plt.close(fig)
+
+
 def save_extreme_threshold_metrics(metrics, out_dir):
     ref = reference_data(metrics)
     if "extreme_event_metrics" not in ref:
@@ -679,6 +747,7 @@ def main():
     save_fss(metrics, out_dir)
     save_pearson(metrics, out_dir)
     save_cra(metrics, out_dir)
+    save_object_metrics(metrics, out_dir)
     save_intensity_bin_metrics(metrics, out_dir)
     save_intensity_bin_improvement(metrics, out_dir)
     save_psd_plots(metrics, out_dir)

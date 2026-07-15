@@ -10,6 +10,7 @@ from nowcasting.experiments.common import (
     save_json_args,
 )
 from nowcasting.facl import build_facl_loss, compute_forecast_reconstruction_loss
+from nowcasting.models.pwv_features import parse_tendency_windows, pwv_tendency_maps
 from nowcasting.models.temporal_discriminator import TemporalDiscriminator
 from train_adversarial_custom import (
     append_epoch_log,
@@ -54,11 +55,61 @@ def build_parser():
     return parser
 
 
+def _use_v3_tendency_signal(args):
+    return (
+        getattr(args, "model_name", "") == "PWVCoupledNowcastNetV3"
+        and bool(parse_tendency_windows(getattr(args, "pwv_tendency_windows", "")))
+    )
+
+
+def _normalize_positive(x):
+    x = F.relu(x)
+    denom = x.amax(dim=tuple(range(1, x.dim())), keepdim=True).clamp_min(1e-6)
+    return x / denom
+
+
+def v3_tendency_physical_signal(pwv, input_length, args):
+    history = pwv[:, :input_length]
+    last = history[:, -1]
+    raw_growth = F.relu(last - history[:, 0])
+    tendency_maps = pwv_tendency_maps(
+        history,
+        getattr(args, "frame_minutes", 6.0),
+        getattr(args, "pwv_tendency_windows", ""),
+        getattr(args, "pwv_tendency_mode", "slope"),
+    )
+    if tendency_maps:
+        tendency_growth = torch.stack([F.relu(item[:, -1]) for item in tendency_maps], dim=1).mean(dim=1)
+        growth = torch.maximum(raw_growth, tendency_growth)
+    else:
+        growth = raw_growth
+
+    dx = F.pad(last[..., 1:] - last[..., :-1], (0, 1, 0, 0))
+    dy = F.pad(last[..., 1:, :] - last[..., :-1, :], (0, 0, 0, 1))
+    gradient = torch.sqrt(dx * dx + dy * dy + 1e-6)
+    positive_state = F.relu(last - last.mean(dim=(1, 2), keepdim=True))
+    return _normalize_positive(growth + gradient + 0.5 * positive_state)
+
+
+def physical_signal_for_model(pwv, input_length, args):
+    if _use_v3_tendency_signal(args):
+        return v3_tendency_physical_signal(pwv, input_length, args)
+    return pwv_physical_signal(pwv, input_length, args)
+
+
+def v3_coupling_alignment_loss(coupling, target, frames, pwv, args):
+    last_radar = frames[:, args.input_length - 1, :, :, 0]
+    rain_growth = _normalize_positive(target - last_radar.unsqueeze(1))
+    pwv_signal = physical_signal_for_model(pwv, args.input_length, args).unsqueeze(1)
+    align_weight = rain_growth * pwv_signal
+    return ((1.0 - coupling[:, :, 0]) * align_weight).sum() / align_weight.sum().clamp_min(1e-6)
+
+
 def dry_unsupported_mask(target, frames, pwv, args):
     last_rain = frames[:, args.input_length - 1, :, :, 0]
     dry = (target < args.false_alarm_threshold).float()
     no_recent_rain = (last_rain < args.false_alarm_threshold).float().unsqueeze(1)
-    pwv_signal = pwv_physical_signal(pwv, args.input_length, args).unsqueeze(1)
+    pwv_signal = physical_signal_for_model(pwv, args.input_length, args).unsqueeze(1)
     unsupported = (1.0 - pwv_signal).clamp(0.0, 1.0)
     return dry * no_recent_rain * unsupported
 
@@ -99,7 +150,10 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
     coupling_smooth = coupling_smoothness(coupling)
     coupling_l1 = coupling.mean()
     support_l1 = support_gate.mean()
-    align_loss = coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
+    if _use_v3_tendency_signal(args):
+        align_loss = v3_coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
+    else:
+        align_loss = coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
     fa_loss = false_alarm_loss(pred, target, frames, pwv, args)
     dry_support_loss = support_dry_loss(support_gate, target, frames, pwv, args)

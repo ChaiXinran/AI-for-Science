@@ -21,6 +21,7 @@ from make_server_3h_report import (
     save_intensity_bin_metrics,
     save_lead_curves,
     save_neighborhood_csi,
+    save_object_metrics,
     save_pearson,
     save_psd_error,
     save_psd_plots,
@@ -187,6 +188,7 @@ def main():
     save_fss(metrics, out_dir)
     save_pearson(metrics, out_dir)
     save_cra(metrics, out_dir)
+    save_object_metrics(metrics, out_dir)
     save_intensity_bin_metrics(metrics, out_dir)
     save_intensity_bin_improvement(metrics, out_dir)
     save_psd_plots(metrics, out_dir)

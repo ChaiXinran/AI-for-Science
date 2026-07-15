@@ -8,7 +8,7 @@ from nowcasting.layers.generation.noise_projector import Noise_Projector
 from nowcasting.layers.utils import make_grid, warp
 from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 from nowcasting.models.nowcastnet_pwv_v2 import ConvBlock, LightweightUNet
-from nowcasting.models.pwv_features import build_pwv_features, pwv_feature_group_count
+from nowcasting.models.pwv_features import build_base_pwv_features, build_pwv_features, pwv_feature_group_count
 
 
 class PWVCoupledNetV3(nn.Module):
@@ -37,6 +37,8 @@ class PWVCoupledNetV3(nn.Module):
         fusion_channels = getattr(configs, "fusion_channels", 32)
         self.intensity_scale = float(getattr(configs, "intensity_scale", 128.0))
         self.pwv_feature_groups = pwv_feature_group_count(configs)
+        self.has_pwv_tendency = self.pwv_feature_groups > 4
+        base_pwv_channels = configs.input_length * 4
         pwv_channels = configs.input_length * self.pwv_feature_groups
 
         self.radar_evo_net = Evolution_Network(configs.input_length, self.pred_length, base_c=evo_base_c)
@@ -47,8 +49,15 @@ class PWVCoupledNetV3(nn.Module):
             nn.Conv2d(fusion_channels, fusion_channels, kernel_size=1),
         )
 
+        source_pwv_channels = base_pwv_channels if self.has_pwv_tendency else pwv_channels
+        if self.has_pwv_tendency:
+            self.base_pwv_stem = ConvBlock(base_pwv_channels, fusion_channels)
+            self.base_feature_gate = nn.Sequential(
+                ConvBlock(fusion_channels * 2, fusion_channels),
+                nn.Conv2d(fusion_channels, fusion_channels, kernel_size=1),
+            )
         self.pwv_source_net = LightweightUNet(
-            pwv_channels + fusion_channels,
+            source_pwv_channels + fusion_channels,
             self.pred_length,
             base_channels=pwv_base_c,
         )
@@ -85,6 +94,9 @@ class PWVCoupledNetV3(nn.Module):
     def _pwv_features(self, pwv_input):
         return build_pwv_features(pwv_input, self.configs)
 
+    def _base_pwv_features(self, pwv_input):
+        return build_base_pwv_features(pwv_input)
+
     def forward(self, all_frames, pwv_frames=None, return_aux=False):
         all_frames = all_frames[:, :, :, :, :1]
         frames = all_frames.permute(0, 1, 4, 2, 3)
@@ -96,16 +108,24 @@ class PWVCoupledNetV3(nn.Module):
         input_frames = input_frames.reshape(batch, self.configs.input_length, height, width)
         pwv_input = self._prepare_pwv_input(input_frames, pwv_frames)
         pwv_features = self._pwv_features(pwv_input)
+        base_pwv_features = self._base_pwv_features(pwv_input)
         radar_context = torch.clamp(input_frames / max(self.intensity_scale, 1.0), 0.0, 1.0)
 
         radar_feat = self.radar_stem(radar_context)
         pwv_feat = self.pwv_stem(pwv_features)
         feature_coupling = torch.sigmoid(self.feature_gate(torch.cat([radar_feat, pwv_feat], dim=1)))
         fused_feature = radar_feat + feature_coupling * pwv_feat
+        source_pwv_features = pwv_features
+        source_fused_feature = fused_feature
+        if self.has_pwv_tendency:
+            base_pwv_feat = self.base_pwv_stem(base_pwv_features)
+            base_feature_coupling = torch.sigmoid(self.base_feature_gate(torch.cat([radar_feat, base_pwv_feat], dim=1)))
+            source_pwv_features = base_pwv_features
+            source_fused_feature = radar_feat + base_feature_coupling * base_pwv_feat
 
         radar_intensity, motion = self.radar_evo_net(input_frames)
         gate_input = torch.cat([radar_context, pwv_features, fused_feature], dim=1)
-        pwv_intensity = self.pwv_source_net(torch.cat([pwv_features, fused_feature], dim=1))
+        pwv_intensity = self.pwv_source_net(torch.cat([source_pwv_features, source_fused_feature], dim=1))
         source_coupling_logits = self.lead_time(self.source_coupling_net(gate_input), "gate")
         support_gate_logits = self.lead_time(self.support_gate_net(gate_input), "gate")
         source_coupling = torch.sigmoid(source_coupling_logits)

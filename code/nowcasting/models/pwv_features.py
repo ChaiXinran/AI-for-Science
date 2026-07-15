@@ -94,6 +94,10 @@ def base_pwv_features(pwv_input):
     return [value, anomaly, delta, gradient]
 
 
+def build_base_pwv_features(pwv_input):
+    return torch.clamp(torch.cat(base_pwv_features(pwv_input), dim=1), -5.0, 5.0)
+
+
 def build_pwv_features(pwv_input, configs):
     frame_minutes = getattr(configs, "frame_minutes", 6.0)
     windows = getattr(configs, "pwv_tendency_windows", "")
