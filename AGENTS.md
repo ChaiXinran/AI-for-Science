@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository packages the NowcastNet inference code. The main working tree is `code/`: `run.py` is the command-line entry point, `run` is the Code Ocean launch wrapper, and `requirements.txt` lists Python dependencies. Model code lives in `code/nowcasting/models/`, data loading in `code/nowcasting/data_provider/`, layer implementations in `code/nowcasting/layers/`, and output rendering/evaluation helpers in `code/nowcasting/evaluator.py`. Reproducibility scripts are `code/mrms_case_test.sh` and `code/mrms_large_case_test.sh`. Container setup is kept under `environment/`, while `metadata/` contains capsule metadata.
+This repository packages the NowcastNet inference code. The main working tree is `code/`: `run.py` is the command-line entry point, `run` is the Code Ocean launch wrapper, and `requirements.txt` lists Python dependencies. Model code lives in `code/nowcasting/models/`, data loading in `code/nowcasting/data_provider/`, layer implementations in `code/nowcasting/layers/`, and output rendering/evaluation helpers in `code/nowcasting/evaluator.py`. Python experiment CLIs live under `code/nowcasting/cli/`; shell workflows are grouped under `code/scripts/` by purpose. Public MRMS reproduction wrappers remain available through `code/mrms_case_test.sh` and `code/mrms_large_case_test.sh`. Container setup is kept under `environment/`, while `metadata/` contains capsule metadata.
 
 ## Build, Test, and Development Commands
 

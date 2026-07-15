@@ -56,7 +56,7 @@ Run this first in WSL:
 conda activate nowcast
 cd /mnt/d/_Search/AIforScience/Rewritten/capsule-3935105/code
 
-python -u train_adversarial_custom.py \
+python -m nowcasting.cli.custom.train_adversarial \
   --data_root ../data/DATA_2025_S/RADAR_2025_S \
   --save_dir ../checkpoints/smoke_adv_gpu \
   --readme_ckpt ../checkpoints/smoke_mrms_model.ckpt \
@@ -77,7 +77,7 @@ python -u train_adversarial_custom.py \
 
 ```bash
 cd /mnt/d/_Search/AIforScience/Rewritten/capsule-3935105/code
-bash ./train_nowcastnet_adversarial.sh
+bash ./scripts/custom/train_nowcastnet_adversarial.sh
 ```
 
 Outputs:
@@ -186,7 +186,7 @@ V3 testing saves the source coupling as `c_*.png` and the PWV support gate as `s
 
 ## Server Full 3-Hour Training
 
-Use these scripts for full-sample server experiments on the AutoDL 5090 machine. They compare the baseline NowcastNet against PWV V2 and PWV V3 with the same train/validation/test split, 9 input frames, 30 forecast frames, stride 1, and all available windows.
+Use these scripts for full-sample server experiments on the AutoDL 5090 machine. They run the same train/validation/test split, 9 input frames, 30 forecast frames, stride 1, and all available windows.
 
 The scripts automatically prefer `RAIN_2025_S` as the predicted field and evaluate rain rate in `mm/h`. `RADAR_2025_S` is still detected and printed for traceability, and `PWV_2025_S` is used by PWV V2/V3.
 
@@ -194,37 +194,75 @@ The scripts automatically prefer `RAIN_2025_S` as the predicted field and evalua
 cd /path/to/capsule-3935105/code
 conda activate nowcast
 DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S \
-RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical \
+RUNS_ROOT=/root/autodl-tmp/nowcastnet_runs \
 BATCH_SIZE=8 EPOCHS=60 NUM_WORKERS=8 \
-bash ./server_run_all_3h.sh
+bash ./scripts/server/server_run_all_3h.sh
 ```
+
+The default data input is `/root/autodl-tmp/datasets/north_china/DATA_2025_S`. The default output base is `/root/autodl-tmp/nowcastnet_runs`; each one-click version script creates a version-specific folder:
+
+```bash
+bash ./scripts/server/server_run_pwv_v1_3h.sh
+bash ./scripts/server/server_run_pwv_v2_3h.sh
+bash ./scripts/server/server_run_pwv_v3_3h.sh
+bash ./scripts/server/server_run_pwv_v4_3h.sh
+bash ./scripts/server/server_run_pwv_v4_tendency_3h.sh
+```
+
+Those commands write to:
+
+```text
+/root/autodl-tmp/nowcastnet_runs/pwv_v1_3h/
+/root/autodl-tmp/nowcastnet_runs/pwv_v2_3h/
+/root/autodl-tmp/nowcastnet_runs/pwv_v3_3h/
+/root/autodl-tmp/nowcastnet_runs/pwv_v4_3h/
+/root/autodl-tmp/nowcastnet_runs/pwv_v4_tendency_3h/
+```
+
+`server_run_pwv_v4_3h.sh` is the original V4 run. `server_run_pwv_v4_tendency_3h.sh` is the V4 tendency variant and defaults to `PWV_TENDENCY_WINDOWS=30,60`, `PWV_TENDENCY_MODE=slope`, and `FRAME_MINUTES=6`.
 
 The server scripts auto-detect `RADAR_2025_S`, `RAIN_2025_S`, and `PWV_2025_S` under `DATA_ROOT` up to three directory levels. If the dataset is stored with a different layout, override the resolved folders explicitly:
 
 ```bash
-PRECIP_ROOT=/path/to/RAIN_2025_S PWV_ROOT=/path/to/PWV_2025_S bash ./server_run_all_3h.sh
+PRECIP_ROOT=/path/to/RAIN_2025_S PWV_ROOT=/path/to/PWV_2025_S bash ./scripts/server/server_run_all_3h.sh
 ```
 
 Individual stages can also be run separately:
 
 ```bash
-bash ./server_train_radar_3h.sh
-bash ./server_test_radar_3h.sh
-bash ./server_train_pwv_v2_3h.sh
-bash ./server_test_pwv_v2_3h.sh
-bash ./server_train_pwv_v3_3h.sh
-bash ./server_test_pwv_v3_3h.sh
-python -u make_server_3h_report.py --run_root /root/autodl-tmp/nowcastnet_runs/north_china_3h_physical
+bash ./scripts/server/server_train_radar_3h.sh
+bash ./scripts/server/server_test_radar_3h.sh
+bash ./scripts/server/server_train_pwv_v1_3h.sh
+bash ./scripts/server/server_test_pwv_v1_3h.sh
+bash ./scripts/server/server_report_pwv_v1_3h.sh
+bash ./scripts/server/server_train_pwv_v2_3h.sh
+bash ./scripts/server/server_test_pwv_v2_3h.sh
+bash ./scripts/server/server_report_pwv_v2_3h.sh
+bash ./scripts/server/server_train_pwv_v3_3h.sh
+bash ./scripts/server/server_test_pwv_v3_3h.sh
+bash ./scripts/server/server_report_pwv_v3_3h.sh
+bash ./scripts/server/server_train_pwv_v4_3h.sh
+bash ./scripts/server/server_test_pwv_v4_3h.sh
+bash ./scripts/server/server_report_pwv_v4_3h.sh
+bash ./scripts/server/server_train_pwv_v4_tendency_3h.sh
+bash ./scripts/server/server_test_pwv_v4_tendency_3h.sh
+bash ./scripts/server/server_report_pwv_v4_tendency_3h.sh
+```
+
+Additional comparison runs:
+
+```bash
+bash ./scripts/server/server_run_pwv_v3_leadtime_compare_3h.sh
+bash ./scripts/server/server_run_pwv_v4_vs_v3_3h.sh
+bash ./scripts/server/server_run_pwv_v4_tendency_vs_v3_3h.sh
 ```
 
 Main outputs are:
 
 ```text
-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/radar_3h_model.ckpt
-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v2_3h_model.ckpt
-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/checkpoints/pwv_v3_3h_model.ckpt
-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/results/*/metrics.json
-/root/autodl-tmp/nowcastnet_runs/north_china_3h_physical/reports/comparison_3h/
+/root/autodl-tmp/nowcastnet_runs/<version>/checkpoints/*_model.ckpt
+/root/autodl-tmp/nowcastnet_runs/<version>/results/*/metrics.json
+/root/autodl-tmp/nowcastnet_runs/<version>/reports/
 ```
 
 The comparison report includes:
@@ -266,7 +304,7 @@ bash ./quick_test_pwv_6h.sh
 Long-horizon tests write `lead_time_metrics` for every forecast frame and `horizon_metrics` for bins such as `0-1h`, `1-2h`, `2-3h`, and `3-6h`. After running the tests, generate plots with:
 
 ```bash
-python code/make_horizon_report.py
+python -m nowcasting.cli.reports.horizon
 ```
 
 The report is saved to:
@@ -279,7 +317,7 @@ reports/horizon_comparison/
 
 ```bash
 cd /mnt/d/_Search/AIforScience/Rewritten/capsule-3935105/code
-bash ./mrms_custom_case_test.sh
+bash ./scripts/mrms/mrms_custom_case_test.sh
 ```
 
 Outputs:
@@ -301,6 +339,7 @@ of each script instantiating its own classes directly:
 ```text
 nowcasting/models/registry.py      model registry for NowcastNet and PWV V1/V2/V3
 nowcasting/experiments/common.py   runtime args, PNG DataLoader, model creation, save/load helpers
+nowcasting/cli/                    grouped Python command-line entry points
 ```
 
 Use `--model_name` to select a registered model. Current names are
