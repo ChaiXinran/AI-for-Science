@@ -48,6 +48,8 @@ python -u test_pwv_coupled_v2.py \
     --pwv_pixel_min 0 \
     --pwv_pixel_max 255 \
     --pwv_invert \
+    --pwv_tendency_windows "${PWV_TENDENCY_WINDOWS:-}" \
+    --pwv_tendency_mode "${PWV_TENDENCY_MODE:-slope}" \
     --metric_thresholds "0.5,2,5,10,30" \
     --neighborhood_metric_thresholds "16,32" \
     --neighborhood_size 5 \
