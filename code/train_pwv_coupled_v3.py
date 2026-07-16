@@ -63,6 +63,11 @@ def build_parser():
     parser.add_argument("--lambda_object_mask", type=float, default=0.0)
     parser.add_argument("--lambda_object_area", type=float, default=0.0)
     parser.add_argument("--lambda_object_intensity", type=float, default=0.0)
+    parser.add_argument("--lambda_object_dice", type=float, default=0.0)
+    parser.add_argument("--lambda_object_count", type=float, default=0.0)
+    parser.add_argument("--lambda_object_centroid", type=float, default=0.0)
+    parser.add_argument("--lambda_object_consistency", type=float, default=0.0)
+    parser.add_argument("--object_consistency_temperature", type=float, default=2.0)
     return parser
 
 
@@ -179,8 +184,12 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
         + args.lambda_object_mask
         + args.lambda_object_area
         + args.lambda_object_intensity
+        + args.lambda_object_dice
+        + args.lambda_object_count
+        + args.lambda_object_centroid
+        + args.lambda_object_consistency
     ) > 0:
-        object_loss, object_parts = compute_object_loss(aux["object"], target, args)
+        object_loss, object_parts = compute_object_loss(aux["object"], target, args, pred_rain=pred)
 
     total = (
         args.lambda_forecast * forecast_loss
@@ -332,8 +341,12 @@ def validate(generator, loader, args):
             + args.lambda_object_mask
             + args.lambda_object_area
             + args.lambda_object_intensity
+            + args.lambda_object_dice
+            + args.lambda_object_count
+            + args.lambda_object_centroid
+            + args.lambda_object_consistency
         ) > 0:
-            object_loss, _ = compute_object_loss(aux["object"], target, args)
+            object_loss, _ = compute_object_loss(aux["object"], target, args, pred_rain=pred)
             obj += object_loss.item() * frames.size(0)
         seen += frames.size(0)
     return total / max(seen, 1), c_mean / max(seen, 1), s_mean / max(seen, 1), fa / max(seen, 1), obj / max(seen, 1)
