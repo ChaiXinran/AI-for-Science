@@ -137,6 +137,10 @@ def support_dry_loss(support_gate, target, frames, pwv, args):
     return (support * mask).sum() / mask.sum().clamp_min(1.0)
 
 
+def is_finite_tensor(x):
+    return bool(torch.isfinite(x).all().item())
+
+
 def generator_losses(generator, frames, pwv, aux, target, discriminator, args, facl_criterion=None, global_step=0):
     pred = aux["prediction"][..., 0]
     evo = aux["evolution"] * args.intensity_scale
@@ -230,11 +234,21 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
         with autocast_context(args.device, args.amp):
             with torch.no_grad():
                 fake = generator(frames, pwv)[..., 0]
+            if not is_finite_tensor(fake):
+                print("step {:05d} skipped non-finite generator output before D update".format(step), flush=True)
+                opt_d.zero_grad(set_to_none=True)
+                opt_g.zero_grad(set_to_none=True)
+                continue
             real_logits = discriminator(discriminator_sequence(target, args.intensity_scale))
             fake_logits = discriminator(discriminator_sequence(fake.detach(), args.intensity_scale))
             real_loss = F.binary_cross_entropy_with_logits(real_logits, torch.ones_like(real_logits))
             fake_loss = F.binary_cross_entropy_with_logits(fake_logits, torch.zeros_like(fake_logits))
             d_loss = 0.5 * (real_loss + fake_loss)
+        if not torch.isfinite(d_loss):
+            print("step {:05d} skipped non-finite discriminator loss".format(step), flush=True)
+            opt_d.zero_grad(set_to_none=True)
+            opt_g.zero_grad(set_to_none=True)
+            continue
         scaler_d.scale(d_loss).backward()
         scaler_d.step(opt_d)
         scaler_d.update()
@@ -256,10 +270,22 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
                 facl_criterion=facl_criterion,
                 global_step=global_step,
             )
+        if not torch.isfinite(g_loss):
+            print("step {:05d} skipped non-finite generator loss".format(step), flush=True)
+            opt_g.zero_grad(set_to_none=True)
+            for param in discriminator.parameters():
+                param.requires_grad_(True)
+            continue
         scaler_g.scale(g_loss).backward()
         if args.grad_clip > 0:
             scaler_g.unscale_(opt_g)
-            torch.nn.utils.clip_grad_norm_(generator.parameters(), args.grad_clip)
+            grad_norm = torch.nn.utils.clip_grad_norm_(generator.parameters(), args.grad_clip)
+            if not torch.isfinite(grad_norm):
+                print("step {:05d} skipped non-finite generator grad norm".format(step), flush=True)
+                opt_g.zero_grad(set_to_none=True)
+                for param in discriminator.parameters():
+                    param.requires_grad_(True)
+                continue
         scaler_g.step(opt_g)
         scaler_g.update()
         args.global_step = global_step + 1

@@ -45,8 +45,11 @@ class FACLLoss(nn.Module):
 
     def probability_fcl(self, global_step: int) -> float:
         step = max(int(global_step), 0)
+        if step < self.fal_only_steps:
+            return 0.0
         if self.decay_steps <= 1:
             return 0.0
+        step = step - self.fal_only_steps
         if step >= self.decay_steps - 1:
             return 0.0
         return 1.0 - step / (self.decay_steps - 1)
@@ -74,7 +77,7 @@ class FACLLoss(nn.Module):
             numerator = (torch.conj(fft_pred) * fft_target).sum().real
             pred_energy = (torch.abs(fft_pred) ** 2).sum()
             target_energy = (torch.abs(fft_target) ** 2).sum()
-            denominator = torch.sqrt(pred_energy * target_energy).clamp_min(self.eps)
+            denominator = torch.sqrt((pred_energy + self.eps) * (target_energy + self.eps))
             fcl = 1.0 - numerator / denominator
             both_zero = (pred_energy < self.eps) & (target_energy < self.eps)
             return torch.where(both_zero, torch.zeros_like(fcl), fcl)
@@ -82,7 +85,7 @@ class FACLLoss(nn.Module):
         numerator = (torch.conj(fft_pred) * fft_target).sum(dim=(-2, -1)).real
         pred_energy = (torch.abs(fft_pred) ** 2).sum(dim=(-2, -1))
         target_energy = (torch.abs(fft_target) ** 2).sum(dim=(-2, -1))
-        denominator = torch.sqrt(pred_energy * target_energy).clamp_min(self.eps)
+        denominator = torch.sqrt((pred_energy + self.eps) * (target_energy + self.eps))
         fcl = 1.0 - numerator / denominator
         both_zero = (pred_energy < self.eps) & (target_energy < self.eps)
         fcl = torch.where(both_zero, torch.zeros_like(fcl), fcl)
