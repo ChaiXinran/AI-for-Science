@@ -1,19 +1,13 @@
 from nowcasting.models import nowcastnet
 from nowcasting.models.nowcastnet_pwv import PWVCoupledNet
-from nowcasting.models.nowcastnet_pwv_v2 import PWVCoupledNetV2
-from nowcasting.models.nowcastnet_pwv_v3 import PWVCoupledNetV3
-from nowcasting.models.nowcastnet_pwv_v3_object import PWVCoupledNetV3Object
-from nowcasting.models.nowcastnet_pwv_v4 import PWVCoupledNetV4
+from nowcasting.models.nowcastnet_pwv_object import PWVCoupledNetObject
 
 
 MODEL_REGISTRY = {
     "NowcastNet": nowcastnet.Net,
     "nowcasting": nowcastnet.Net,
     "PWVCoupledNowcastNet": PWVCoupledNet,
-    "PWVCoupledNowcastNetV2": PWVCoupledNetV2,
-    "PWVCoupledNowcastNetV3": PWVCoupledNetV3,
-    "PWVCoupledNowcastNetV3Object": PWVCoupledNetV3Object,
-    "PWVCoupledNowcastNetV4": PWVCoupledNetV4,
+    "PWVCoupledNowcastNetObject": PWVCoupledNetObject,
 }
 
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from nowcasting.models.nowcastnet_pwv_v2 import LightweightUNet
+from nowcasting.layers.shared_blocks import LightweightUNet
 
 
 class ObjectPredictionHead(nn.Module):
