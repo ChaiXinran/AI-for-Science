@@ -21,6 +21,8 @@ logs/
 runs/
 checkpoints/
 .idea/
+AGENTS.md
+CLAUDE.md
 
 # 模型权重
 *.pth
