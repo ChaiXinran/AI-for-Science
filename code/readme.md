@@ -167,6 +167,58 @@ Attention params: `--pwv_attn_dim 64 --pwv_attn_heads 4 --pwv_attn_downsample 4`
 | `--object_center_sigma` | `2.0` | Gaussian sigma for center heatmap |
 | `--object_consistency_temperature` | `2.0` | Temperature for rain-object Dice |
 
+## Oracle Object Graph Pilot
+
+The object graph pilot is an offline diagnostic layer. It does not modify the
+NowcastNet generator. Use it to test whether true historical precipitation
+objects, their tracks, and direct PWV statistics contain lifecycle signal before
+connecting graph predictions back into the main model.
+
+### Pilot 0 - Build object graph tables
+
+```bash
+python -u nowcasting/object_graph/build_graph_dataset.py \
+    --data_root ../data/DATA_2025_S/RAIN_2025_S \
+    --pwv_root ../data/DATA_2025_S/PWV_2025_S \
+    --output_dir ../outputs/object_graph_pilot \
+    --intensity_scale 35 --pwv_intensity_scale 80 --pwv_invert \
+    --threshold 16 --min_area 4 --grid_km 1
+```
+
+Outputs:
+
+| File | Description |
+|------|-------------|
+| `objects.csv` | Per-object radar, PWV, motion, age, and lifecycle labels |
+| `edges.csv` | Adjacent-frame object links with match scores and relation labels |
+| `event_splits.csv` | Date/event-level train/val/test split |
+| `summary.json` | Object counts, edge counts, relation counts, and label counts |
+
+Splits are assigned by event directory rather than by sliding window, so
+overlapping windows from the same weather process do not leak across splits.
+The one-step lifecycle labels are valid only when `label_valid_next == 1`;
+final-frame objects are excluded from lifecycle training.
+
+### Pilot 1 - Table baseline
+
+Train radar-only and radar+PWV baselines on the generated `objects.csv`:
+
+```bash
+python -u train/object_graph.py \
+    --objects_csv ../outputs/object_graph_pilot/objects.csv \
+    --output_dir ../outputs/object_graph_mlp_radar \
+    --feature_set radar --epochs 50
+
+python -u train/object_graph.py \
+    --objects_csv ../outputs/object_graph_pilot/objects.csv \
+    --output_dir ../outputs/object_graph_mlp_radar_pwv \
+    --feature_set radar_pwv --epochs 50
+```
+
+Compare `metrics.json` across the two runs. The first go/no-go check is whether
+`radar_pwv` improves lifecycle `macro_ap` or `macro_f1`, especially for
+`label_decay`, `label_split`, and `label_merge`, not just `label_survive`.
+
 ## Recommended Combinations
 
 **Radar-only:**
