@@ -16,6 +16,9 @@ def seed_everything(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 def add_model_runtime_args(args):
@@ -59,6 +62,9 @@ def make_png_dataloader(args, split, max_samples=None, shuffle=None, drop_last=N
         "pixel_min": args.pixel_min,
         "pixel_max": args.pixel_max,
         "invert": not getattr(args, "no_invert", False),
+        "split_manifest": getattr(args, "split_manifest", ""),
+        "frame_minutes": getattr(args, "frame_minutes", 6.0),
+        "require_contiguous": getattr(args, "require_contiguous", False),
     }
     if has_pwv:
         dataset_kwargs.update(
@@ -68,6 +74,7 @@ def make_png_dataloader(args, split, max_samples=None, shuffle=None, drop_last=N
                 "pwv_pixel_min": getattr(args, "pwv_pixel_min", 0.0),
                 "pwv_pixel_max": getattr(args, "pwv_pixel_max", 255.0),
                 "pwv_invert": getattr(args, "pwv_invert", False),
+                "strict_pwv": getattr(args, "strict_pwv", False),
             }
         )
     dataset = PngSequenceDataset(**dataset_kwargs)
@@ -85,6 +92,16 @@ def make_png_dataloader(args, split, max_samples=None, shuffle=None, drop_last=N
     )
 
 
+def save_dataset_provenance(loaders, path):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {}
+    for name, loader in loaders.items():
+        payload[name] = loader.dataset.provenance()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+
 def build_generator(args):
     return build_model(args).to(args.device)
 
@@ -100,6 +117,29 @@ def load_generator_weights(model, path, device, strict=True):
     state = load_model_state(path, device)
     model.load_state_dict(state, strict=strict)
     return model
+
+
+def load_radar_backbone_weights(model, path, device):
+    source = load_model_state(path, device)
+    target = model.state_dict()
+    mapped = {}
+    for key, value in source.items():
+        target_key = "radar_evo_net." + key[len("evo_net."):] if key.startswith("evo_net.") else key
+        if target_key in target and tuple(target[target_key].shape) == tuple(value.shape):
+            mapped[target_key] = value
+    required_prefixes = ("radar_evo_net.", "gen_enc.", "gen_dec.", "proj.")
+    missing_required = [
+        key for key in target
+        if key.startswith(required_prefixes) and key not in mapped
+    ]
+    if missing_required:
+        raise ValueError(
+            "Radar checkpoint is incompatible; {} required backbone tensors missing (first: {}).".format(
+                len(missing_required), missing_required[0]
+            )
+        )
+    model.load_state_dict(mapped, strict=False)
+    return {"loaded_tensors": len(mapped), "missing_required": 0}
 
 
 def safe_torch_save(obj, path):

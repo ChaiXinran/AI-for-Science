@@ -343,6 +343,16 @@ python -u report/recompute.py --runs_root <path> --output_dir <path> \
 
 ## Server Pipeline
 
+### Frozen PWV birth/growth experiment
+
+For the publication-oriented matched RAIN baseline and the PWV-guided positive
+birth/growth source model, use `protocols/pwv_birth_growth_v1.json` and
+`scripts/run_birth_growth_protocol.sh`. The workflow creates a day-blocked split
+manifest, requires manual review of storm boundaries, rejects non-contiguous
+windows and missing PWV pairs, runs three matched seeds, and verifies exact test
+sample hashes before comparison. See [protocols/README.md](protocols/README.md).
+
+
 ```bash
 DATA_ROOT=/path/to/DATA_2025_S \
     RUN_ROOT=/path/to/output \

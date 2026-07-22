@@ -19,6 +19,8 @@ from nowcasting.experiments.common import (
     build_generator,
     load_model_state,
     make_png_dataloader,
+    save_dataset_provenance,
+    seed_everything,
 )
 
 
@@ -28,6 +30,7 @@ def build_parser():
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--output_dir", type=str, default="../results/custom_test")
     parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--split", choices=["train", "val", "test", "all"], default="test")
     parser.add_argument("--input_length", type=int, default=9)
     parser.add_argument("--total_length", type=int, default=29)
@@ -42,6 +45,8 @@ def build_parser():
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--split_manifest", type=str, default="")
+    parser.add_argument("--require_contiguous", action="store_true")
     parser.add_argument("--max_samples", type=int, default=20)
     parser.add_argument("--num_save_samples", type=int, default=10)
     parser.add_argument("--intensity_scale", type=float, default=128.0)
@@ -1243,11 +1248,13 @@ def summarize_cra_store(store):
 
 def main():
     args = add_model_runtime_args(build_parser().parse_args())
+    seed_everything(args.seed)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
+    save_dataset_provenance({args.split: loader}, output_dir / "data_manifest.json")
     extreme_quantiles = parse_float_list(args.extreme_quantiles)
     intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
     quantile_info = compute_target_quantile_thresholds(

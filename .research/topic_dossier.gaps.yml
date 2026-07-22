@@ -1,0 +1,47 @@
+dossier: "PWV 引导的对流新生与增强预测"
+generated: "2026-07-22"
+run_type: "manual adversarial screening and repository feasibility audit"
+downstream_consumer: research-design-helper
+recall:
+  tool: "manual web search"
+  query_phrasings: 8
+  unique_papers: 18
+  tool_confidence: medium
+  dossier_confidence: medium
+  screen:
+    gate: "manual title/abstract/full-text relevance screening"
+    retrieved: 18
+    kept: 10
+    screened_out: 8
+    tier: cold-start
+    note: "No direct access to subscription citation databases."
+  note: "Screening-grade, not systematic; 2026 literature is rapidly changing."
+pipeline:
+  - manual adversarial web search
+  - literature comparison matrix
+  - bib from resolvable DOI/arXiv identifiers
+  - three-gate assessment
+gaps:
+  - id: G1
+    name: "PWV 引导的对流新生—增强源项预测"
+    statement: "Use gridded GNSS-PWV to predict only the positive birth/growth residual relative to a radar-advection baseline."
+    type: A
+    open: partially-occupied
+    open_confidence: medium
+    dead_end_status: partially-attempted
+    dead_end_evidence: >-
+      Adjacent work already covers PWV-radar fusion (10.1109/TGRS.2025.3554745), environmental-driver convective development (arXiv:2605.24067), and motion/source-sink decomposition (10.1609/aaai.v40i19.38628), but not their exact constrained combination.
+    contribution_type: borderline
+    borderline_reason: B2
+    feasibility: feasible-with-effort
+    verdict: conditional-go
+    verdict_reason: >-
+      Proceed only if event-independent pilots show PWV adds robust information beyond radar history and survives interpolation and label-validity controls.
+    linked_claim: null
+open_questions:
+  - id: Q1
+    text: "Does PWV improve birth/growth PR-AUC on event-held-out data beyond radar history, climatology, station geometry, and shuffled controls?"
+  - id: Q2
+    text: "Are birth/growth labels stable across advection algorithms, thresholds, neighborhood radii, and object persistence filters?"
+  - id: Q3
+    text: "Are there enough independent convective events and GNSS station density for cross-season or cross-region validation?"

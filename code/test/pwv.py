@@ -7,11 +7,15 @@ from pathlib import Path
 
 import torch
 
+from nowcasting.birth_growth import BirthGrowthAccumulator, apply_pwv_control
+
 from nowcasting.experiments.common import (
     add_model_runtime_args as add_model_args,
     build_generator,
     load_model_state,
     make_png_dataloader,
+    save_dataset_provenance,
+    seed_everything,
 )
 from test.radar import (
     average_neighborhood_score,
@@ -74,6 +78,7 @@ def build_parser():
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--output_dir", type=str, default="../results/pwv_coupled_v2")
     parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--split", choices=["train", "val", "test", "all"], default="test")
     parser.add_argument("--input_length", type=int, default=9)
     parser.add_argument("--total_length", type=int, default=29)
@@ -97,6 +102,10 @@ def build_parser():
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--split_manifest", type=str, default="")
+    parser.add_argument("--require_contiguous", action="store_true")
+    parser.add_argument("--strict_pwv", action="store_true")
+    parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
     parser.add_argument("--max_samples", type=int, default=20)
     parser.add_argument("--num_save_samples", type=int, default=10)
     parser.add_argument("--intensity_scale", type=float, default=128.0)
@@ -130,6 +139,10 @@ def build_parser():
     parser.add_argument("--object_thresholds", type=str, default="16")
     parser.add_argument("--object_min_area", type=int, default=4)
     parser.add_argument("--object_iou_threshold", type=float, default=0.1)
+    parser.add_argument("--birth_low_threshold", type=float, default=2.0)
+    parser.add_argument("--birth_high_threshold", type=float, default=10.0)
+    parser.add_argument("--growth_delta", type=float, default=5.0)
+    parser.add_argument("--birth_probability_threshold", type=float, default=0.5)
     return parser
 
 
@@ -138,10 +151,12 @@ load_state = load_model_state
 
 def main():
     args = add_model_args(build_parser().parse_args())
+    seed_everything(args.seed)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     loader = make_png_dataloader(args, args.split, args.max_samples, shuffle=False, drop_last=False)
+    save_dataset_provenance({args.split: loader}, output_dir / "data_manifest.json")
     extreme_quantiles = parse_float_list(args.extreme_quantiles)
     intensity_bin_quantiles = parse_float_list(args.intensity_bin_quantiles)
     quantile_info = compute_target_quantile_thresholds(
@@ -208,14 +223,20 @@ def main():
     attention_sum = None
     attention_count = 0
     saved = 0
+    birth_growth_metrics = None
+    if args.model_name == "PWVBirthGrowthNowcastNet":
+        birth_growth_metrics = BirthGrowthAccumulator(args.birth_probability_threshold)
 
     with torch.no_grad():
         for batch_id, batch in enumerate(loader):
             frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
             pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
+            pwv = apply_pwv_control(pwv, args.pwv_control)
             target = batch["target_frames"].float().to(args.device, non_blocking=True)
             aux = model(frames, pwv, return_aux=True)
             pred = aux["prediction"][..., 0]
+            if birth_growth_metrics is not None:
+                birth_growth_metrics.update(aux, target, args)
             coupling = aux["coupling"][:, :, 0]
             last_input = frames[:, args.input_length - 1, :, :, 0]
             persistence = last_input.unsqueeze(1).repeat(1, args.gen_oc, 1, 1)
@@ -269,6 +290,15 @@ def main():
             attention_np = aux["pwv_temporal_attention"].detach().cpu().numpy() if "pwv_temporal_attention" in aux else None
             object_center_np = None
             object_mask_np = None
+            birth_probability_np = None
+            growth_probability_np = None
+            growth_amount_np = None
+            radar_evolution_np = None
+            if birth_growth_metrics is not None:
+                birth_probability_np = aux["birth_probability"][:, :, 0].detach().cpu().numpy()
+                growth_probability_np = aux["growth_probability"][:, :, 0].detach().cpu().numpy()
+                growth_amount_np = aux["growth_amount"][:, :, 0].detach().cpu().numpy()
+                radar_evolution_np = aux["radar_evolution"].detach().cpu().numpy()
             if "object" in aux:
                 object_center_np = torch.sigmoid(aux["object"]["center_logits"]).detach().cpu().numpy()
                 object_mask_np = torch.sigmoid(aux["object"]["mask_logits"]).detach().cpu().numpy()
@@ -312,6 +342,11 @@ def main():
                 if object_center_np is not None:
                     save_sequence(sample_dir, "oc_", object_center_np[i], 1.0, 0.0, 255.0, False)
                     save_sequence(sample_dir, "om_", object_mask_np[i], 1.0, 0.0, 255.0, False)
+                if birth_probability_np is not None:
+                    save_sequence(sample_dir, "birth_p_", birth_probability_np[i], 1.0, 0.0, 255.0, False)
+                    save_sequence(sample_dir, "growth_p_", growth_probability_np[i], 1.0, 0.0, 255.0, False)
+                    save_sequence(sample_dir, "growth_amount_", growth_amount_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, False)
+                    save_sequence(sample_dir, "radar_evolution_", radar_evolution_np[i], args.intensity_scale, args.pixel_min, args.pixel_max, not args.no_invert)
                 saved += 1
 
             print("tested batch {}".format(batch_id + 1), flush=True)
@@ -331,6 +366,7 @@ def main():
         "persistence": finalize_scalar_totals(persistence_totals),
         "samples": len(loader.dataset),
         "saved_samples": saved,
+        "pwv_control": args.pwv_control,
         "coupling_mean": coupling_mean,
         "coupling_std": max(coupling_var, 0.0) ** 0.5,
         "support_mean": support_mean,
@@ -405,6 +441,7 @@ def main():
             "model": summarize_object_store(model_objects, args.frame_minutes),
             "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
+        "birth_growth": birth_growth_metrics.finalize() if birth_growth_metrics is not None else None,
     }
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)

@@ -38,6 +38,7 @@ class PWVCoupledNet(nn.Module):
         fusion_channels = getattr(configs, "fusion_channels", 32)
         self.intensity_scale = float(getattr(configs, "intensity_scale", 128.0))
         self.pwv_source_type = getattr(configs, "pwv_source_type", "cnn")
+        self.birth_growth_mode = bool(getattr(configs, "pwv_birth_growth_mode", False))
         self.pwv_feature_groups = pwv_feature_group_count(configs)
         self.has_pwv_tendency = self.pwv_feature_groups > 4
         base_pwv_channels = configs.input_length * 4
@@ -154,7 +155,17 @@ class PWVCoupledNet(nn.Module):
         source_coupling = torch.sigmoid(source_coupling_logits)
         support_gate = torch.sigmoid(support_gate_logits)
 
-        pwv_contribution = source_coupling * support_gate * pwv_intensity
+        birth_probability = None
+        growth_probability = None
+        growth_amount = None
+        if self.birth_growth_mode:
+            birth_probability = source_coupling
+            growth_probability = support_gate
+            growth_amount = F.softplus(pwv_intensity)
+            activation = 1.0 - (1.0 - birth_probability) * (1.0 - growth_probability)
+            pwv_contribution = activation * growth_amount
+        else:
+            pwv_contribution = source_coupling * support_gate * pwv_intensity
         source = radar_intensity + pwv_contribution
         source = self.lead_time(source, "source")
         motion_ = motion.reshape(batch, self.pred_length, 2, height, width)
@@ -167,23 +178,30 @@ class PWVCoupledNet(nn.Module):
 
         series = []
         advected_series = []
+        radar_series = []
         last_frames = all_frames[:, (self.configs.input_length - 1):self.configs.input_length, :, :, 0]
+        radar_last_frames = last_frames
         grid = self.grid.to(all_frames.device).repeat(batch, 1, 1, 1)
         for i in range(self.pred_length):
+            radar_advected = warp(radar_last_frames, motion_[:, i], grid, mode="nearest", padding_mode="border")
+            radar_last_frames = radar_advected + radar_source_[:, i]
             advected = warp(last_frames, motion_[:, i], grid, mode="nearest", padding_mode="border")
             last_frames = advected + source_[:, i]
             advected_series.append(advected)
+            radar_series.append(radar_last_frames)
             series.append(last_frames)
         evo_result = torch.cat(series, dim=1)
         advected_result = torch.cat(advected_series, dim=1)
+        radar_evolution_result = torch.cat(radar_series, dim=1)
         evo_condition = evo_result / self.intensity_scale
 
         evo_feature = self.gen_enc(torch.cat([input_frames, evo_condition], dim=1))
-        noise = torch.randn(batch, self.configs.ngf, height // 32, width // 32, device=all_frames.device)
+        noise_height, noise_width = height // 32, width // 32
+        noise = torch.randn(batch, self.configs.ngf, noise_height, noise_width, device=all_frames.device)
         noise_feature = (
             self.proj(noise)
-            .reshape(batch, -1, 4, 4, 8, 8)
-            .permute(0, 1, 4, 5, 2, 3)
+            .reshape(batch, -1, 4, 4, noise_height, noise_width)
+            .permute(0, 1, 4, 2, 5, 3)
             .reshape(batch, -1, height // 8, width // 8)
         )
 
@@ -195,6 +213,7 @@ class PWVCoupledNet(nn.Module):
                 "prediction": gen_result,
                 "evolution": evo_condition,
                 "advected": advected_result,
+                "radar_evolution": radar_evolution_result,
                 "motion": motion_,
                 "intensity": source_,
                 "radar_source": radar_source_,
@@ -206,7 +225,48 @@ class PWVCoupledNet(nn.Module):
                 "pwv_features": pwv_features,
                 "pwv_input": pwv_input,
             }
+            if self.birth_growth_mode:
+                aux.update(
+                    {
+                        "birth_probability": birth_probability.reshape(batch, self.pred_length, 1, height, width),
+                        "growth_probability": growth_probability.reshape(batch, self.pred_length, 1, height, width),
+                        "growth_amount": growth_amount.reshape(batch, self.pred_length, 1, height, width),
+                    }
+                )
             if pwv_attention is not None:
                 aux["pwv_temporal_attention"] = pwv_attention
             return aux
         return gen_result
+
+
+class PWVBirthGrowthNet(PWVCoupledNet):
+    """PWV branch constrained to non-negative convective birth/growth sources."""
+
+    def __init__(self, configs):
+        configs.pwv_birth_growth_mode = True
+        super(PWVBirthGrowthNet, self).__init__(configs)
+        self._radar_backbone_frozen = False
+
+    def _frozen_radar_modules(self):
+        return [self.radar_evo_net, self.gen_enc, self.gen_dec, self.proj]
+
+    def freeze_radar_backbone(self):
+        self._radar_backbone_frozen = True
+        for module in self._frozen_radar_modules():
+            for parameter in module.parameters():
+                parameter.requires_grad_(False)
+            module.eval()
+        if getattr(self.lead_time, "enabled", False):
+            for parameter in self.lead_time.encoder.parameters():
+                parameter.requires_grad_(False)
+            for name in ("source", "motion"):
+                if name in self.lead_time.heads:
+                    for parameter in self.lead_time.heads[name].parameters():
+                        parameter.requires_grad_(False)
+
+    def train(self, mode=True):
+        super(PWVBirthGrowthNet, self).train(mode)
+        if self._radar_backbone_frozen:
+            for module in self._frozen_radar_modules():
+                module.eval()
+        return self

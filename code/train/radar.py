@@ -15,6 +15,7 @@ from nowcasting.experiments.common import (
     make_png_dataloader,
     safe_torch_save,
     save_adversarial_checkpoint,
+    save_dataset_provenance,
     save_json_args,
     seed_everything,
 )
@@ -71,6 +72,9 @@ def build_parser():
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--split_manifest", type=str, default="")
+    parser.add_argument("--require_contiguous", action="store_true")
+    parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--max_train_samples", type=int, default=0)
     parser.add_argument("--max_val_samples", type=int, default=0)
     parser.add_argument("--intensity_scale", type=float, default=128.0)
@@ -307,6 +311,7 @@ def main():
 
     train_loader = make_dataloader(args, "train", args.max_train_samples)
     val_loader = make_dataloader(args, "val", args.max_val_samples)
+    save_dataset_provenance({"train": train_loader, "val": val_loader}, save_dir / "data_manifest.json")
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
     generator = build_generator(args)

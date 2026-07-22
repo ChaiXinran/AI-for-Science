@@ -11,10 +11,13 @@ from nowcasting.experiments.common import (
     add_model_runtime_args as add_model_args,
     build_generator,
     load_generator_weights,
+    load_radar_backbone_weights,
     make_png_dataloader,
     save_adversarial_checkpoint,
+    save_dataset_provenance,
     save_json_args,
 )
+from nowcasting.birth_growth import apply_pwv_control, birth_growth_losses
 from nowcasting.facl import (
     add_facl_args,
     build_facl_loss,
@@ -130,6 +133,10 @@ def build_parser():
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--split_manifest", type=str, default="")
+    parser.add_argument("--require_contiguous", action="store_true")
+    parser.add_argument("--strict_pwv", action="store_true")
+    parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
     parser.add_argument("--max_train_samples", type=int, default=0)
     parser.add_argument("--max_val_samples", type=int, default=0)
     parser.add_argument("--intensity_scale", type=float, default=128.0)
@@ -158,6 +165,8 @@ def build_parser():
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--resume", type=str, default="")
     parser.add_argument("--init_generator", type=str, default="")
+    parser.add_argument("--init_radar_checkpoint", type=str, default="")
+    parser.add_argument("--freeze_radar_backbone", action="store_true")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     add_facl_args(parser)
@@ -188,12 +197,22 @@ def build_parser():
     parser.add_argument("--lambda_object_centroid", type=float, default=0.0)
     parser.add_argument("--lambda_object_consistency", type=float, default=0.0)
     parser.add_argument("--object_consistency_temperature", type=float, default=2.0)
+    parser.add_argument("--birth_low_threshold", type=float, default=2.0)
+    parser.add_argument("--birth_high_threshold", type=float, default=10.0)
+    parser.add_argument("--growth_delta", type=float, default=5.0)
+    parser.add_argument("--birth_focal_alpha", type=float, default=0.75)
+    parser.add_argument("--birth_focal_gamma", type=float, default=2.0)
+    parser.add_argument("--lambda_birth", type=float, default=0.5)
+    parser.add_argument("--lambda_growth", type=float, default=0.5)
+    parser.add_argument("--lambda_positive_source", type=float, default=0.5)
+    parser.add_argument("--lambda_source_sparse", type=float, default=0.05)
+    parser.add_argument("--source_active_weight", type=float, default=4.0)
     return parser
 
 
 def _use_v3_tendency_signal(args):
     return (
-        getattr(args, "model_name", "") == "PWVCoupledNowcastNet"
+        getattr(args, "model_name", "") in ("PWVCoupledNowcastNet", "PWVBirthGrowthNowcastNet")
         and bool(parse_tendency_windows(getattr(args, "pwv_tendency_windows", "")))
     )
 
@@ -284,13 +303,20 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
     coupling_smooth = coupling_smoothness(coupling)
     coupling_l1 = coupling.mean()
     support_l1 = support_gate.mean()
-    if _use_v3_tendency_signal(args):
+    birth_growth_mode = getattr(args, "model_name", "") == "PWVBirthGrowthNowcastNet"
+    if birth_growth_mode:
+        align_loss = target.new_tensor(0.0)
+    elif _use_v3_tendency_signal(args):
         align_loss = v3_coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
     else:
         align_loss = coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
     fa_loss = false_alarm_loss(pred, target, frames, pwv, args)
-    dry_support_loss = support_dry_loss(support_gate, target, frames, pwv, args)
+    dry_support_loss = target.new_tensor(0.0) if birth_growth_mode else support_dry_loss(support_gate, target, frames, pwv, args)
+    birth_growth_loss = target.new_tensor(0.0)
+    birth_growth_parts = {}
+    if birth_growth_mode:
+        birth_growth_loss, birth_growth_parts = birth_growth_losses(aux, target, args)
     object_loss = pred.new_tensor(0.0)
     object_parts = {}
     if "object" in aux and (
@@ -319,6 +345,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
         + args.lambda_shuffle * shuffle_loss
         + args.lambda_false_alarm * fa_loss
         + args.lambda_support_dry * dry_support_loss
+        + birth_growth_loss
         + object_loss
     )
     parts = {
@@ -338,6 +365,7 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
         "support_dry": dry_support_loss.detach(),
     }
     parts.update(object_parts)
+    parts.update(birth_growth_parts)
     parts.update({key: value.detach() for key, value in forecast_parts.items()})
     return total, parts
 
@@ -351,6 +379,7 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
     for step, batch in enumerate(loader, 1):
         frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
         pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
+        pwv = apply_pwv_control(pwv, args.pwv_control)
         target = batch["target_frames"].float().to(args.device, non_blocking=True)
 
         opt_d.zero_grad(set_to_none=True)
@@ -442,6 +471,7 @@ def validate(generator, loader, args):
     for batch in loader:
         frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
         pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
+        pwv = apply_pwv_control(pwv, args.pwv_control)
         target = batch["target_frames"].float().to(args.device, non_blocking=True)
         aux = generator(frames, pwv, return_aux=True)
         pred = aux["prediction"][..., 0]
@@ -483,9 +513,22 @@ def main():
 
     train_loader = _make_dataloader(args, "train", args.max_train_samples)
     val_loader = _make_dataloader(args, "val", args.max_val_samples)
+    save_dataset_provenance({"train": train_loader, "val": val_loader}, save_dir / "data_manifest.json")
     print("train windows: {} val windows: {}".format(len(train_loader.dataset), len(val_loader.dataset)), flush=True)
 
     generator = build_generator(args)
+    if args.init_radar_checkpoint:
+        if args.model_name != "PWVBirthGrowthNowcastNet":
+            raise ValueError("--init_radar_checkpoint is reserved for PWVBirthGrowthNowcastNet")
+        report = load_radar_backbone_weights(generator, args.init_radar_checkpoint, args.device)
+        print("initialized fixed radar backbone from {} ({})".format(args.init_radar_checkpoint, report), flush=True)
+    if args.freeze_radar_backbone:
+        if not hasattr(generator, "freeze_radar_backbone"):
+            raise ValueError("Selected model does not support --freeze_radar_backbone")
+        generator.freeze_radar_backbone()
+        trainable = sum(parameter.numel() for parameter in generator.parameters() if parameter.requires_grad)
+        frozen = sum(parameter.numel() for parameter in generator.parameters() if not parameter.requires_grad)
+        print("radar backbone frozen; trainable_params={} frozen_params={}".format(trainable, frozen), flush=True)
     if args.init_generator:
         load_generator_weights(
             generator,

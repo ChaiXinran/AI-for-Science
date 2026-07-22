@@ -1,0 +1,56 @@
+# Frozen PWV birth/growth protocol
+
+This protocol removes the main comparability problems in the historical runs:
+
+- both models target `RAIN_2025_S` at the same 35 mm/h calibration;
+- a checked split manifest selects complete day directories before windows are built;
+- windows with missing 6-minute frames are rejected;
+- missing PWV pairs are fatal rather than silently replaced with zeros;
+- each PWV model is initialized from and anchored to the matched radar-only seed;
+- test sample identities are hashed and must match before results are summarized.
+
+## Server workflow
+
+From the repository root:
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1
+export DEVICE=cuda:0
+export BATCH_SIZE=8
+export EPOCHS=60
+export NUM_WORKERS=8
+export SEEDS="2026 2027 2028"
+
+bash code/scripts/run_birth_growth_protocol.sh
+```
+
+The first invocation creates `RUN_ROOT/protocol/split_manifest.json` and exits.
+Inspect the train/validation and validation/test boundaries. If adjacent dates
+belong to the same storm, move them to the same split. Commit or archive this
+exact manifest and then rerun the command.
+
+Before the full run, use a separate output folder for an end-to-end smoke test:
+
+```bash
+export RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_smoke
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export SMOKE=1
+bash code/scripts/run_birth_growth_protocol.sh
+unset SMOKE
+```
+
+## Quick server smoke test
+
+Use one seed and small sample limits by invoking the training scripts directly;
+do not treat smoke-test metrics as scientific evidence. The full protocol script
+intentionally has no sample-limit shortcut.
+
+## Outputs
+
+Each seed contains matched radar-only, zero-PWV Birth/Growth control, and real-PWV
+Birth/Growth checkpoint/result directories. Every checkpoint folder
+contains `data_manifest.json`; every result folder contains an independent test
+manifest. The final `protocol_summary.json` is generated only when sample hashes
+match exactly.

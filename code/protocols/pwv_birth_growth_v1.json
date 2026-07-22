@@ -1,0 +1,66 @@
+{
+  "protocol_id": "pwv_birth_growth_v1",
+  "status": "draft_until_split_manifest_is_manually_reviewed",
+  "target": {
+    "field": "RAIN_2025_S",
+    "unit": "mm/h",
+    "intensity_scale": 35.0,
+    "pixel_mapping": "value=(255-pixel)/255*35"
+  },
+  "pwv": {
+    "field": "PWV_2025_S",
+    "unit": "mm",
+    "intensity_scale": 80.0,
+    "pixel_mapping": "value=(255-pixel)/255*80",
+    "strict_pairing": true,
+    "tendency_windows_minutes": [30, 60]
+  },
+  "sequence": {
+    "frame_minutes": 6,
+    "input_frames": 9,
+    "forecast_frames": 30,
+    "total_frames": 39,
+    "require_contiguous": true,
+    "stride": 1
+  },
+  "split": {
+    "unit": "day_directory_minimum; manually merge same-storm adjacent days",
+    "order": "chronological_block",
+    "ratios": [0.70, 0.15, 0.15],
+    "frozen_by": "split_manifest JSON SHA-256"
+  },
+  "models": [
+    {
+      "id": "radar_only",
+      "model_name": "NowcastNet",
+      "training": "from scratch"
+    },
+    {
+      "id": "zero_pwv_birth_growth_control",
+      "model_name": "PWVBirthGrowthNowcastNet",
+      "training": "initialize and freeze the matched radar-only backbone; replace PWV with zeros during training and testing"
+    },
+    {
+      "id": "pwv_birth_growth",
+      "model_name": "PWVBirthGrowthNowcastNet",
+      "training": "initialize and freeze the matched radar-only backbone; train PWV branch"
+    }
+  ],
+  "birth_growth_labels": {
+    "birth": "radar_evolution < 2 mm/h and target >= 10 mm/h",
+    "growth": "radar_evolution >= 2 mm/h and target-radar_evolution > 5 mm/h",
+    "positive_source": "relu(target-radar_evolution)"
+  },
+  "seeds": [2026, 2027, 2028],
+  "checkpoint_selection": "minimum validation weighted-L1; test metrics are never used for selection",
+  "primary_metrics": [
+    "real-PWV minus zero-PWV birth PR-AUC",
+    "birth POD and FAR",
+    "growth PR-AUC",
+    "positive-source MAE on active pixels",
+    "final-field CSI/POD/FAR at 10 and 20 mm/h",
+    "FSS",
+    "event-wise paired deltas with confidence intervals"
+  ],
+  "kill_test": "Do not expand the architecture if real PWV fails to improve event-held-out birth/growth metrics over the matched zero-PWV head, or later fails shuffled/climatology controls."
+}

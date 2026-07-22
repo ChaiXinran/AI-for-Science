@@ -1,0 +1,146 @@
+last_updated: "2026-07-22"
+artifact_source: "https://huggingface.co/datasets/CloudAXV/nowcastnet-runs/tree/main"
+comparison_rules:
+  publication_comparable_requires:
+    - "same target field and scaling"
+    - "same event-level train/validation/test split"
+    - "same evaluated sample IDs"
+    - "same evaluation code and thresholds"
+    - "documented seed and checkpoint-selection rule"
+  current_global_status: "not publication-comparable"
+experiments:
+  - id: "radar_3h"
+    family: "baseline"
+    model: "NowcastNet"
+    target_path: "RADAR_2025_S"
+    epochs: 60
+    seed: 2026
+    evaluated_samples: 24
+    status: "reference-only"
+    reason: "Target differs from most V3/V4 RAIN_2025_S runs."
+  - id: "pwv_v2_3h"
+    family: "V2"
+    model: "PWVCoupledNowcastNetV2"
+    target_path: "RADAR_2025_S"
+    pwv: true
+    epochs: 60
+    seed: 2026
+    evaluated_samples: 24
+    status: "comparable-with-radar_3h-only"
+    observed_recomputed: {mae: 0.741084, rmse: 1.982122}
+  - id: "pwv_v3_3h"
+    family: "V3 physical"
+    model: "PWVCoupledNowcastNetV3"
+    target_path: "RAIN_2025_S"
+    pwv: true
+    epochs: 60
+    seed: 2026
+    evaluated_samples: 24
+    status: "anchor-for-later-V3/V4-comparisons"
+    observed_recomputed: {mae: 0.339036, rmse: 1.210170}
+  - id: "pwv_v3_3h_facl_ft"
+    family: "V3 FACL fine-tune"
+    model: "PWVCoupledNowcastNetV3"
+    target_path: "RAIN_2025_S"
+    initialized_from: "pwv_v3_3h"
+    epochs: 5
+    batch_size: 2
+    evaluated_samples: 10
+    status: "not-comparable"
+    reason: "Only 10 saved samples and fine-tuning protocol differs."
+  - id: "pwv_v3_leadtime"
+    family: "V3 lead-time conditioning"
+    model: "PWVCoupledNowcastNetV3"
+    target_path: "RAIN_2025_S"
+    lead_time_embed_dim: 16
+    epochs: 60
+    evaluated_samples: 24
+    status: "diagnostic-only"
+    observed_recomputed: {mae: 0.378460, rmse: 1.298103}
+  - id: "pwv_v3_tendency"
+    family: "V3 tendency"
+    model: "PWVCoupledNowcastNetV3"
+    target_path: "RAIN_2025_S"
+    tendency_windows_minutes: [18, 36, 48]
+    forecast_loss: "weighted_l1"
+    epochs: 60
+    evaluated_samples: 24
+    status: "promising-but-unconfirmed"
+    observed_recomputed: {mae: 0.273544, rmse: 0.929913}
+    reason: "Best RMSE among the 24-sample non-object RAIN-target subset, but no uncertainty or event audit."
+  - id: "pwv_v3_tendency_facl"
+    family: "V3 tendency + FACL"
+    model: "PWVCoupledNowcastNetV3"
+    target_path: "RAIN_2025_S"
+    tendency_windows_minutes: [18, 36, 48]
+    forecast_loss: "facl"
+    epochs: 60
+    status: "diagnostic-only"
+    reason: "Comparison summary exists, but this run is absent from the unified recomputed manifest."
+  - id: "pwv_v4_attention"
+    family: "V4 attention"
+    model: "PWVCoupledNowcastNetV4"
+    target_path: "RAIN_2025_S"
+    epochs: 60
+    evaluated_samples: 24
+    status: "no-evidence-of-upgrade"
+    observed_recomputed: {mae: 0.408475, rmse: 1.521620}
+    reason: "Worse than the V3 anchor on the saved 24-sample diagnostic subset."
+  - id: "pwv_v4_tendency"
+    family: "V4 tendency"
+    model: "PWVCoupledNowcastNetV4"
+    target_path: "RAIN_2025_S"
+    tendency_windows_minutes: [30, 60]
+    epochs: 60
+    evaluated_samples: 24
+    status: "promising-but-unconfirmed"
+    observed_recomputed: {mae: 0.312535, rmse: 0.977861}
+    reason: "Better than V3 anchor but worse than V3 tendency on this small diagnostic subset."
+  - id: "pwv_v4_tendency_facl"
+    family: "V4 tendency + FACL"
+    model: "PWVCoupledNowcastNetV4"
+    target_path: "RAIN_2025_S"
+    tendency_windows_minutes: [18, 36, 48]
+    forecast_loss: "facl"
+    epochs: 60
+    status: "diagnostic-only"
+    reason: "Not included in the unified recomputed manifest."
+  - id: "pwv_v3_object"
+    family: "V3 object head"
+    model: "PWVCoupledNowcastNetV3Object"
+    target_path: "RAIN_2025_S"
+    initialized_from: "pwv_v3_3h"
+    object_losses: {center: 0.05, mask: 0.03}
+    epochs: 60
+    evaluated_samples: 24
+    status: "promising-but-confounded"
+    observed_recomputed: {mae: 0.257803, rmse: 0.945811}
+    reason: "Lowest MAE in unified table, but initialized from V3 and lacks a matched radar-only/object-only control."
+  - id: "pwv_v3_object_consistency"
+    family: "V3 object consistency"
+    model: "PWVCoupledNowcastNetV3Object"
+    target_path: "RAIN_2025_S"
+    initialized_from: "pwv_v3_object"
+    object_losses: {center: 0.04, mask: 0.02, dice: 0.04, consistency: 0.03}
+    epochs: 60
+    status: "diagnostic-only"
+    reason: "Pairwise report exists but unified recomputed ranking omits this run."
+  - id: "pwv_v3_object_consistency_tendency_facl"
+    family: "combined unfinished run"
+    model: "PWVCoupledNowcastNetV3Object"
+    target_path: "RAIN_2025_S"
+    initialized_from: "pwv_v3_object"
+    tendency_windows_minutes: [30, 60]
+    forecast_loss: "facl"
+    status: "failed-or-incomplete"
+    reason: "Only train_args.json and a 1201-byte training log are present; no checkpoint or report."
+recommended_canonical_set:
+  purpose: "Test PWV incremental value for birth/growth, not select the best historical architecture."
+  runs:
+    - "radar-only birth/growth pilot"
+    - "PWV-only birth/growth pilot"
+    - "radar + PWV birth/growth pilot"
+    - "radar + temporally shuffled PWV"
+    - "radar + spatially shuffled PWV"
+    - "radar + PWV climatology"
+    - "radar + station-distance/interpolation mask"

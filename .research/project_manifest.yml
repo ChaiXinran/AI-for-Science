@@ -1,0 +1,32 @@
+project_name: "NowcastNet with PWV Coupling"
+research_area: "GNSS-PWV and radar/rainfall fusion for precipitation nowcasting"
+research_question: ""
+current_stage: experiments
+last_updated: "2026-07-22"
+repository:
+  branch: "master"
+  head: "5cf7aef graph-pilot"
+  primary_language: "Python"
+  framework: "PyTorch"
+  entrypoints:
+    - "code/train/radar.py"
+    - "code/train/pwv.py"
+    - "code/test/radar.py"
+    - "code/test/pwv.py"
+    - "code/report/recompute.py"
+    - "code/train/object_graph.py"
+external_artifacts:
+  - name: "Hugging Face experiment archive"
+    url: "https://huggingface.co/datasets/CloudAXV/nowcastnet-runs/tree/main"
+    inventory_date: "2026-07-22"
+    nodes: 390
+    files: 321
+current_evidence_state: >-
+  Many model variants have been trained, but existing comparisons are not yet
+  publication-grade. V2/radar runs use RADAR_2025_S while most V3/V4 runs use
+  RAIN_2025_S; recomputed reports contain only 24 saved samples (10 for one
+  FACL run), so cross-family ranking and significance claims are invalid.
+next_decision: >-
+  Determine whether PWV provides event-held-out incremental information for
+  convective birth/growth beyond radar history and negative controls before
+  training another deep architecture.

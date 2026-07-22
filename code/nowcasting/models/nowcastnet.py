@@ -63,8 +63,14 @@ class Net(nn.Module):
         # Generative Network
         evo_feature = self.gen_enc(torch.cat([input_frames, evo_result], dim=1))
 
-        noise = torch.randn(batch, self.configs.ngf, height // 32, width // 32, device=all_frames.device)
-        noise_feature = self.proj(noise).reshape(batch, -1, 4, 4, 8, 8).permute(0, 1, 4, 5, 2, 3).reshape(batch, -1, height // 8, width // 8)
+        noise_height, noise_width = height // 32, width // 32
+        noise = torch.randn(batch, self.configs.ngf, noise_height, noise_width, device=all_frames.device)
+        noise_feature = (
+            self.proj(noise)
+            .reshape(batch, -1, 4, 4, noise_height, noise_width)
+            .permute(0, 1, 4, 2, 5, 3)
+            .reshape(batch, -1, height // 8, width // 8)
+        )
 
         feature = torch.cat([evo_feature, noise_feature], dim=1)
         gen_result = self.gen_dec(feature, evo_result)
