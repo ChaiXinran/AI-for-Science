@@ -2,13 +2,38 @@ import torch
 import torch.nn.functional as F
 
 
-def apply_pwv_control(pwv, mode):
+def apply_pwv_control(pwv, mode, input_length=None):
+    """Apply a PWV control without exposing forecast-period PWV to the model.
+
+    Controls that manipulate time or space operate only on the observed input
+    prefix.  The unused suffix is left untouched so diagnostics cannot leak
+    future PWV into the first ``input_length`` frames consumed by the model.
+    """
     if mode == "real":
         return pwv
     if mode == "zero":
         return torch.zeros_like(pwv)
+    observed_length = pwv.size(1) if input_length is None else int(input_length)
+    if observed_length <= 0 or observed_length > pwv.size(1):
+        raise ValueError("input_length must be in [1, {}]".format(pwv.size(1)))
+    observed = pwv[:, :observed_length]
+    controlled = pwv.clone()
     if mode == "temporal_reverse":
-        return torch.flip(pwv, dims=[1])
+        controlled[:, :observed_length] = torch.flip(observed, dims=[1])
+        return controlled
+    if mode == "level_only":
+        observed_mean = observed.mean(dim=1, keepdim=True)
+        controlled[:, :observed_length] = observed_mean.expand_as(observed)
+        return controlled
+    if mode == "spatial_shift":
+        # A fixed half-domain cyclic displacement preserves each sample's PWV
+        # distribution, spatial texture, and temporal evolution while breaking
+        # radar/PWV geographical co-location without interpolation artifacts.
+        shifts = (pwv.size(-2) // 2, pwv.size(-1) // 2)
+        controlled[:, :observed_length] = torch.roll(
+            observed, shifts=shifts, dims=(-2, -1)
+        )
+        return controlled
     raise ValueError("Unknown PWV control mode: {}".format(mode))
 
 

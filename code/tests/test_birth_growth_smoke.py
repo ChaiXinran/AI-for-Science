@@ -123,6 +123,22 @@ class BirthGrowthModelSmokeTest(unittest.TestCase):
         self.assertEqual(int(apply_pwv_control(pwv, "zero").sum()), 0)
         self.assertTrue(torch.equal(apply_pwv_control(pwv, "temporal_reverse")[:, 0], pwv[:, -1]))
 
+        longer = torch.arange(20, dtype=torch.float32).reshape(1, 5, 2, 2)
+        reversed_observed = apply_pwv_control(longer, "temporal_reverse", input_length=3)
+        self.assertTrue(torch.equal(reversed_observed[:, 0], longer[:, 2]))
+        self.assertTrue(torch.equal(reversed_observed[:, 3:], longer[:, 3:]))
+
+        level_only = apply_pwv_control(longer, "level_only", input_length=3)
+        expected_mean = longer[:, :3].mean(dim=1)
+        self.assertTrue(torch.equal(level_only[:, 0], expected_mean))
+        self.assertTrue(torch.equal(level_only[:, 2], expected_mean))
+        self.assertTrue(torch.equal(level_only[:, 3:], longer[:, 3:]))
+
+        spatial_shift = apply_pwv_control(longer, "spatial_shift", input_length=3)
+        self.assertTrue(torch.equal(spatial_shift[:, :3].sum(), longer[:, :3].sum()))
+        self.assertTrue(torch.equal(spatial_shift[:, 3:], longer[:, 3:]))
+        self.assertFalse(torch.equal(spatial_shift[:, :3], longer[:, :3]))
+
     def test_frozen_protocol_dimensions_for_radar_and_pwv(self):
         """Exercise the exact 9-to-30 and 96x96 tensor contract with light channels."""
         torch.manual_seed(2026)

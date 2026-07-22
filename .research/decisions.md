@@ -126,3 +126,63 @@ unchanged.
 CSI10 and CSI20 over matched radar, null PWV, and temporally reversed PWV,
 without an unacceptable false-alarm or frequency-bias increase. Only a passing
 pilot may advance to full data and multiple seeds.
+
+## 2026-07-23 - Contrastive-trigger pilot is weak-positive, replication required
+
+**Evidence.** On 512 matched validation windows (seed 2026), real PWV exceeded
+radar at CSI10 by 0.000762 (0.23% relative) and CSI20 by 0.001573 (0.77%
+relative). It also exceeded null PWV and temporally reversed PWV at both
+thresholds. Null PWV reproduced radar within numerical tolerance, confirming
+the identity constraint.
+
+**Caveat.** The gain was accompanied by higher POD and FAR: relative to radar,
+POD increased by 0.00598/0.00386 and FAR by 0.00651/0.00204 at 10/20 mm/h.
+MAE and RMSE worsened by 0.000827 and 0.000785. Temporal reversal retained most
+of the CSI gain; correctly ordered PWV contributed only about 30% of the CSI10
+increment and 25% of the CSI20 increment beyond radar. The result may therefore
+be a small intensity/calibration shift rather than robust temporal PWV skill.
+
+**Decision.** Classify the result as mechanism-positive but not full-data
+ready. Advance to a matched three-seed replication gate using the same
+2048/512 budget. Require consistent positive CSI deltas versus all controls,
+report seed uncertainty, and inspect matched-FAR or matched-frequency-bias
+skill before any full-data run.
+
+## 2026-07-23 - Three-seed replication rejects full-data promotion
+
+**Evidence.** Across seeds 2026--2028, mean real-minus-radar CSI deltas were
+only +0.000300 at 10 mm/h and +0.000710 at 20 mm/h, with standard deviations
+0.000710 and 0.000770. CSI10 reversed sign for seed 2028. Real PWV lost to
+temporally reversed PWV at CSI10 for seed 2027 and at CSI20 for seeds 2027 and
+2028; its mean advantage over reversal was only +0.000117/+0.000025. MAE was
+worse in all three seeds (mean +0.000955), and RMSE was also worse on average.
+
+**Training diagnosis.** For both newly supplied head-training curves, epoch 1
+was the minimum validation weighted-L1. From epoch 1 to epoch 10, validation
+support mean expanded roughly eightfold and validation false-alarm loss grew
+about sevenfold while validation error worsened. The positive-only residual
+therefore learns to activate increasingly broad support rather than isolate
+rare, PWV-attributable initiation.
+
+**Decision.** The `contrastive_trigger` formulation fails its replication gate
+and must not be scaled to full data. Preserve the exact null identity and
+paired-control machinery, but retire the positive-only additive amount path.
+Before another training run, use checkpoint-only level-only and spatial-control
+diagnostics to determine whether the small signal is static moisture state,
+temporal evolution, or a geographical shortcut. A successor must allow signed
+suppression as well as enhancement and must use a direction-specific control.
+
+## 2026-07-23 - Correct temporal-control scope before interpretation
+
+**Audit finding.** The original temporal-reverse implementation flipped all 29
+paired PWV frames before the model selected its first nine inputs. It therefore
+placed forecast-period PWV into the observed input slots. Radar, real-PWV, and
+null-PWV results are unaffected, but every previously reported temporal-reverse
+comparison is invalid and must be replaced.
+
+**Correction.** All temporal and spatial controls now modify only the nine
+observed PWV frames and leave the unused suffix untouched. Reports reject stale
+temporal-reverse metrics unless they declare `observed_input_only`. Re-run the
+corrected reverse control together with observed-mean `level_only` and fixed
+half-domain spatial displacement for all three existing checkpoints; no model
+training is required.

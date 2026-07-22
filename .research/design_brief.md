@@ -38,7 +38,10 @@ _TODO_
 ## 3. Identifiability check
 
 **Discriminating condition**:
-_TODO: confirm which shuffled/climatology controls will be treated as decisive._
+The researcher approved checkpoint-only controls that isolate static moisture
+level and spatial co-location. Real PWV must be compared with null PWV,
+observed-input-only temporal reversal, an observed-period mean field repeated
+over time (`level_only`), and a fixed half-domain spatial displacement.
 
 **Confounders to rule out**:
 - PWV interpolation and station-geometry shortcuts.
@@ -58,7 +61,9 @@ Matched `RAIN_2025_S` radar-only NowcastNet for final-field skill, plus an
 architecture-matched zero-PWV Birth/Growth head for birth/growth PR-AUC.
 
 **Negative control**:
-_TODO: temporal shuffle, spatial shuffle, PWV climatology, and station-distance mask are proposed but not yet selected by the researcher._
+Committed development controls are null PWV, observed-input-only temporal
+reversal, `level_only`, and fixed spatial displacement. PWV climatology and a
+station-distance mask remain candidates for the later full protocol.
 
 ## 5. Risk register
 

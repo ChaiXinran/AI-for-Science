@@ -136,7 +136,11 @@ def build_parser():
     parser.add_argument("--split_manifest", type=str, default="")
     parser.add_argument("--require_contiguous", action="store_true")
     parser.add_argument("--strict_pwv", action="store_true")
-    parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
+    parser.add_argument(
+        "--pwv_control",
+        choices=["real", "zero", "temporal_reverse", "level_only", "spatial_shift"],
+        default="real",
+    )
     parser.add_argument("--max_train_samples", type=int, default=0)
     parser.add_argument("--max_val_samples", type=int, default=0)
     parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="head")
@@ -391,7 +395,7 @@ def train_one_epoch(generator, discriminator, loader, opt_g, opt_d, scaler_g, sc
     for step, batch in enumerate(loader, 1):
         frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
         pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
-        pwv = apply_pwv_control(pwv, args.pwv_control)
+        pwv = apply_pwv_control(pwv, args.pwv_control, args.input_length)
         target = batch["target_frames"].float().to(args.device, non_blocking=True)
 
         opt_d.zero_grad(set_to_none=True)
@@ -483,7 +487,7 @@ def validate(generator, loader, args):
     for batch in loader:
         frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
         pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
-        pwv = apply_pwv_control(pwv, args.pwv_control)
+        pwv = apply_pwv_control(pwv, args.pwv_control, args.input_length)
         target = batch["target_frames"].float().to(args.device, non_blocking=True)
         aux = generator(frames, pwv, return_aux=True)
         pred = aux["prediction"][..., 0]

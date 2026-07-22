@@ -109,7 +109,11 @@ def build_parser():
     parser.add_argument("--split_manifest", type=str, default="")
     parser.add_argument("--require_contiguous", action="store_true")
     parser.add_argument("--strict_pwv", action="store_true")
-    parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
+    parser.add_argument(
+        "--pwv_control",
+        choices=["real", "zero", "temporal_reverse", "level_only", "spatial_shift"],
+        default="real",
+    )
     parser.add_argument("--max_samples", type=int, default=20)
     parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="head")
     parser.add_argument("--num_save_samples", type=int, default=10)
@@ -241,7 +245,7 @@ def main():
         for batch_id, batch in enumerate(loader):
             frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
             pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
-            pwv = apply_pwv_control(pwv, args.pwv_control)
+            pwv = apply_pwv_control(pwv, args.pwv_control, args.input_length)
             target = batch["target_frames"].float().to(args.device, non_blocking=True)
             if args.deterministic_noise:
                 torch.manual_seed(args.seed + batch_id)
@@ -387,6 +391,7 @@ def main():
         "samples": len(loader.dataset),
         "saved_samples": saved,
         "pwv_control": args.pwv_control,
+        "pwv_control_scope": "observed_input_only",
         "coupling_mean": coupling_mean,
         "coupling_std": max(coupling_var, 0.0) ** 0.5,
         "support_mean": support_mean,

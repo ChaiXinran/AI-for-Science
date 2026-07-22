@@ -93,3 +93,41 @@
   tensor-level null-PWV identity. The command-line smoke uses `abs_tol=1e-4`
   and `rel_tol=1e-5` for independent-process aggregates while retaining exact
   event-count checks.
+
+## 2026-07-23 - First server contrastive-trigger result
+
+- Completed seed 2026 on 2,048 training and 512 matched validation windows.
+- Radar CSI10/CSI20 were 0.32569/0.20562; real PWV reached
+  0.32645/0.20719, positive deltas of 0.00076/0.00157.
+- Real PWV also narrowly exceeded null and temporally reversed PWV at both
+  thresholds, while null PWV reproduced the radar metrics as intended.
+- The improvement traded higher POD for higher FAR and slightly worsened MAE/
+  RMSE. Because temporal reversal preserved most of the gain and only one seed
+  is available, the experiment was routed to same-budget multi-seed
+  replication rather than full-data training.
+
+## 2026-07-23 - Three-seed replication completed
+
+- All seeds evaluated the same 512 windows with identical sample SHA-256.
+- Mean real-minus-radar CSI deltas were +0.00030/+0.00071 at 10/20 mm/h, but
+  the effect was smaller than its seed standard deviation and CSI10 changed
+  sign in seed 2028.
+- Temporal reversal matched or beat real PWV in multiple seed/threshold pairs;
+  the mean real advantage over reversal was effectively zero at CSI20.
+- MAE worsened for every seed. Both new training curves selected epoch 1, after
+  which expanding support and false alarms drove validation weighted-L1 up.
+- Marked the positive-only contrastive-trigger residual no-go for full-data
+  scaling. The next action is a checkpoint-only input-control diagnostic, not
+  another larger training run.
+
+## 2026-07-23 - Input-control leakage fix and diagnostic runner
+
+- Audited the temporal-reverse path and found that reversing all 29 PWV frames
+  exposed future PWV in the model's first nine inputs. Invalidated only the old
+  temporal-reverse comparisons; real, null, and radar results remain valid.
+- Restricted every temporal/spatial diagnostic to the observed prefix and
+  tagged outputs with `pwv_control_scope=observed_input_only`.
+- Added observed-mean `level_only` and fixed half-domain spatial displacement,
+  plus a checkpoint-only three-seed runner and report deltas for both controls.
+- Local validation passed: seven model/control tests, Python compilation,
+  strict protocol JSON parsing, Bash syntax, and a synthetic multi-seed report.

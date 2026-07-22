@@ -5,7 +5,8 @@ import statistics
 from pathlib import Path
 
 
-VARIANTS = ("radar", "pwv_real", "pwv_null", "pwv_temporal_reverse")
+CORE_VARIANTS = ("radar", "pwv_real", "pwv_null", "pwv_temporal_reverse")
+DIAGNOSTIC_VARIANTS = ("pwv_level_only", "pwv_spatial_shift")
 
 
 def nested(obj, *keys):
@@ -33,20 +34,34 @@ def main():
 
     rows = []
     for seed_dir in sorted(Path(args.run_root).glob("seed_*")):
-        metric_paths = {name: seed_dir / "results" / name / "metrics.json" for name in VARIANTS}
-        if not all(path.exists() for path in metric_paths.values()):
+        core_paths = {
+            name: seed_dir / "results" / name / "metrics.json" for name in CORE_VARIANTS
+        }
+        if not all(path.exists() for path in core_paths.values()):
             continue
+        metric_paths = dict(core_paths)
+        for name in DIAGNOSTIC_VARIANTS:
+            path = seed_dir / "results" / name / "metrics.json"
+            if path.exists():
+                metric_paths[name] = path
         metrics = {
             name: json.loads(path.read_text(encoding="utf-8"))
             for name, path in metric_paths.items()
         }
+        reverse_scope = metrics["pwv_temporal_reverse"].get("pwv_control_scope")
+        if reverse_scope != "observed_input_only":
+            raise ValueError(
+                "{} has a stale temporal-reverse result; rerun the observed-input-only control".format(
+                    seed_dir.name
+                )
+            )
         hashes = {
             name: load_manifest_hash(seed_dir / "results" / name / "data_manifest.json")
-            for name in VARIANTS
+            for name in metric_paths
         }
         if len(set(hashes.values())) != 1:
             raise ValueError("Sample identity mismatch in {}".format(seed_dir.name))
-        samples = {metrics[name].get("samples") for name in VARIANTS}
+        samples = {metrics[name].get("samples") for name in metric_paths}
         if len(samples) != 1:
             raise ValueError("Sample count mismatch in {}".format(seed_dir.name))
 
@@ -55,7 +70,7 @@ def main():
             "samples": next(iter(samples)),
             "sample_sha256": next(iter(hashes.values())),
         }
-        for name in VARIANTS:
+        for name in metric_paths:
             row["{}_mae".format(name)] = nested(metrics[name], "model", "mae")
             row["{}_rmse".format(name)] = nested(metrics[name], "model", "rmse")
             for threshold in ("10.0", "20.0"):
@@ -74,7 +89,13 @@ def main():
 
         for metric in ("mae", "rmse", "csi_10p0", "csi_20p0"):
             real_key = "pwv_real_{}".format(metric)
-            for reference in ("radar", "pwv_null", "pwv_temporal_reverse"):
+            for reference in (
+                "radar",
+                "pwv_null",
+                "pwv_temporal_reverse",
+                "pwv_level_only",
+                "pwv_spatial_shift",
+            ):
                 reference_key = "{}_{}".format(reference, metric)
                 if finite(row.get(real_key)) and finite(row.get(reference_key)):
                     row["delta_{}_real_minus_{}".format(metric, reference)] = (
@@ -86,10 +107,12 @@ def main():
         raise ValueError("No complete contrastive-control runs under {}".format(args.run_root))
 
     aggregate = {}
-    numeric_keys = sorted(
-        key for key, value in rows[0].items()
+    numeric_keys = sorted({
+        key
+        for row in rows
+        for key, value in row.items()
         if key not in ("seed", "samples") and finite(value)
-    )
+    })
     for key in numeric_keys:
         values = [row[key] for row in rows if finite(row.get(key))]
         aggregate[key] = {
@@ -101,6 +124,7 @@ def main():
     output = {
         "protocol": "pwv_contrastive_trigger_pilot",
         "evaluation_role": "development pilot; not an untouched final test",
+        "pwv_control_scope": "observed_input_only",
         "paired_seed_results": rows,
         "aggregate_across_seeds": aggregate,
     }

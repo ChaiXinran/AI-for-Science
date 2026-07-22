@@ -44,7 +44,11 @@
     "radar_only",
     "same contrastive-trigger checkpoint with real PWV",
     "same contrastive-trigger checkpoint with null PWV",
-    "same contrastive-trigger checkpoint with temporally reversed PWV"
+    "same contrastive-trigger checkpoint with observed-input PWV temporally reversed"
+  ],
+  "checkpoint_only_diagnostics": [
+    "level_only: repeat the nine-frame observed PWV mean field over observed input time",
+    "spatial_shift: cyclically displace observed PWV by half the domain in both spatial axes"
   ],
   "pilot": {
     "train_windows": 2048,
