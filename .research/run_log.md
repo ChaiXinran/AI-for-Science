@@ -60,3 +60,36 @@
   re-evaluated with the new metrics without retraining.
 - Local validation: Python compilation passed, all five Birth/Growth smoke tests
   passed in the `nowcast` environment, and a synthetic horizon-CSI check passed.
+
+## 2026-07-22 - Long-lead PWV signal found
+
+- Re-evaluated the three matched checkpoints on the same 512 windows and split
+  CSI10/CSI20 into 0--1 h, 1--2 h, and 2--3 h bins.
+- Real PWV was harmful at 0--1 h, mixed at 1--2 h, but improved over both
+  zero-PWV and radar-only at 2--3 h: CSI10=0.07023 and CSI20=0.02149.
+- Classified the result as a mechanism-positive but architecture-negative
+  pilot: preserve the long-lead hypothesis and redesign the injection path.
+
+## 2026-07-22 - Project-horizon correction
+
+- Confirmed that the intended task is 0--2 h, not 0--3 h.
+- Reclassified the 2--3 h gain as out-of-primary-scope exploratory evidence.
+- Added exact 0--2 h event aggregation to the comparison report by pooling the
+  existing 0--1 h and 1--2 h contingency counts; no new inference is required.
+
+## 2026-07-22 - Contrastive-trigger pilot implementation
+
+- Replaced sequential naming for new work with a mechanism name plus an
+  executable protocol: `pwv_contrastive_trigger_pilot`.
+- Added a radar-trigger AND PWV-evidence residual whose null-PWV contribution
+  is exactly zero, together with real, null, and temporal-reversal controls
+  evaluated from the same checkpoint.
+- Corrected the experiment contract to 9 input frames and 20 forecast frames
+  (0--2 h) and required a newly matched radar checkpoint because the archived
+  30-frame checkpoint has incompatible output dimensions.
+- Added deterministic evaluation noise, exact sample-hash checks, CSI/POD/FAR/
+  bias reporting at 10 and 20 mm/h, and a single-command server pilot runner.
+- Local CUDA unit coverage passed for 96x96 9-to-20 inference and strict
+  tensor-level null-PWV identity. The command-line smoke uses `abs_tol=1e-4`
+  and `rel_tol=1e-5` for independent-process aggregates while retaining exact
+  event-count checks.

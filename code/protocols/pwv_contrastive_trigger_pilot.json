@@ -1,0 +1,57 @@
+{
+  "protocol_id": "pwv_contrastive_trigger_pilot",
+  "status": "active_development_pilot",
+  "target": {
+    "field": "RAIN_2025_S",
+    "unit": "mm/h",
+    "intensity_scale": 35.0,
+    "pixel_mapping": "value=(255-pixel)/255*35"
+  },
+  "pwv": {
+    "field": "PWV_2025_S",
+    "unit": "mm",
+    "intensity_scale": 80.0,
+    "pixel_mapping": "value=(255-pixel)/255*80",
+    "strict_pairing": true,
+    "features": [
+      "standardized level",
+      "temporal anomaly",
+      "frame delta",
+      "spatial gradient",
+      "30/60 minute slope",
+      "absolute physical level",
+      "positive moistening",
+      "drying"
+    ]
+  },
+  "sequence": {
+    "frame_minutes": 6,
+    "input_frames": 9,
+    "forecast_frames": 20,
+    "total_frames": 29,
+    "forecast_horizon": "0-2h"
+  },
+  "model": {
+    "name": "PWVContrastiveTriggerNowcastNet",
+    "radar_backbone": "matched 0-2h NowcastNet checkpoint, frozen",
+    "candidate_support": "dilated recent radar echo support",
+    "trigger": "learned radar birth/growth probability",
+    "pwv_condition": "positive difference between real-PWV and null-PWV condition logits",
+    "combination": "candidate AND radar trigger AND PWV evidence",
+    "identity_constraint": "null PWV produces exactly zero source contribution"
+  },
+  "development_controls": [
+    "radar_only",
+    "same contrastive-trigger checkpoint with real PWV",
+    "same contrastive-trigger checkpoint with null PWV",
+    "same contrastive-trigger checkpoint with temporally reversed PWV"
+  ],
+  "pilot": {
+    "train_windows": 2048,
+    "validation_windows": 512,
+    "seeds": [2026],
+    "checkpoint_selection": "minimum validation weighted-L1",
+    "evaluation_role": "development only; not final paper test"
+  },
+  "promotion_gate": "real PWV must improve CSI10 and CSI20 over both radar-only and null-PWV, and must beat temporal-reversed PWV without unacceptable FAR or bias"
+}

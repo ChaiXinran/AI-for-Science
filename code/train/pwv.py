@@ -45,7 +45,7 @@ from train.radar import (
 
 
 # ---------------------------------------------------------------------------
-# Shared utilities (formerly in train_pwv_coupled_v2.py)
+# Shared PWV training utilities
 # ---------------------------------------------------------------------------
 
 def _make_dataloader(args, split, max_samples):
@@ -106,7 +106,7 @@ def shuffle_contrast_loss(generator, frames, pwv, target, aux, args):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Train PWV-coupled NowcastNet V3 with false-alarm control")
+    parser = argparse.ArgumentParser(description="Train a mechanism-selected PWV-coupled NowcastNet")
     parser.add_argument("--data_root", type=str, default="../data/DATA_2025_S/RADAR_2025_S")
     parser.add_argument("--pwv_root", type=str, default="../data/DATA_2025_S/PWV_2025_S")
     parser.add_argument("--save_dir", type=str, default="../checkpoints/pwv")
@@ -171,7 +171,7 @@ def build_parser():
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--log_interval", type=int, default=20)
     add_facl_args(parser)
-    # V3-specific args
+    # Tendency-conditioned coupling arguments
     parser.add_argument("--fusion_channels", type=int, default=32)
     parser.add_argument("--pwv_source_type", choices=["cnn", "attention"], default="cnn",
                         help="PWV source generator: cnn=LightweightUNet, attention=TemporalPWVCrossAttentionSource")
@@ -210,17 +210,23 @@ def build_parser():
     parser.add_argument("--lambda_source_sparse", type=float, default=0.05)
     parser.add_argument("--source_active_weight", type=float, default=4.0)
     parser.add_argument("--source_inactive_weight", type=float, default=0.1)
+    parser.add_argument("--pwv_candidate_threshold", type=float, default=0.5)
+    parser.add_argument("--pwv_candidate_radius", type=int, default=2)
     return parser
 
 
-def _use_v3_tendency_signal(args):
+def _uses_tendency_signal(args):
     return (
-        getattr(args, "model_name", "") in ("PWVCoupledNowcastNet", "PWVBirthGrowthNowcastNet")
+        getattr(args, "model_name", "") in (
+            "PWVCoupledNowcastNet",
+            "PWVBirthGrowthNowcastNet",
+            "PWVContrastiveTriggerNowcastNet",
+        )
         and bool(parse_tendency_windows(getattr(args, "pwv_tendency_windows", "")))
     )
 
 
-def v3_tendency_physical_signal(pwv, input_length, args):
+def tendency_physical_signal(pwv, input_length, args):
     history = pwv[:, :input_length]
     last = history[:, -1]
     raw_growth = F.relu(last - history[:, 0])
@@ -244,12 +250,12 @@ def v3_tendency_physical_signal(pwv, input_length, args):
 
 
 def physical_signal_for_model(pwv, input_length, args):
-    if _use_v3_tendency_signal(args):
-        return v3_tendency_physical_signal(pwv, input_length, args)
+    if _uses_tendency_signal(args):
+        return tendency_physical_signal(pwv, input_length, args)
     return pwv_physical_signal(pwv, input_length, args)
 
 
-def v3_coupling_alignment_loss(coupling, target, frames, pwv, args):
+def coupling_alignment_loss(coupling, target, frames, pwv, args):
     last_radar = frames[:, args.input_length - 1, :, :, 0]
     rain_growth = _normalize_positive(target - last_radar.unsqueeze(1))
     pwv_signal = physical_signal_for_model(pwv, args.input_length, args).unsqueeze(1)
@@ -306,11 +312,14 @@ def generator_losses(generator, frames, pwv, aux, target, discriminator, args, f
     coupling_smooth = coupling_smoothness(coupling)
     coupling_l1 = coupling.mean()
     support_l1 = support_gate.mean()
-    birth_growth_mode = getattr(args, "model_name", "") == "PWVBirthGrowthNowcastNet"
+    birth_growth_mode = getattr(args, "model_name", "") in (
+        "PWVBirthGrowthNowcastNet",
+        "PWVContrastiveTriggerNowcastNet",
+    )
     if birth_growth_mode:
         align_loss = target.new_tensor(0.0)
-    elif _use_v3_tendency_signal(args):
-        align_loss = v3_coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
+    elif _uses_tendency_signal(args):
+        align_loss = coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
     else:
         align_loss = coupling_alignment_loss(coupling * support_gate, target, frames, pwv, args)
     shuffle_loss = shuffle_contrast_loss(generator, frames, pwv, target, aux, args)
@@ -506,7 +515,7 @@ def save_checkpoint(path, generator, discriminator, opt_g, opt_d, epoch, val_los
 def main():
     args = add_model_args(build_parser().parse_args())
     if args.amp:
-        print("PWV V3 currently uses full precision for numerical stability; ignoring --amp.", flush=True)
+        print("PWV training currently uses full precision for numerical stability; ignoring --amp.", flush=True)
         args.amp = False
     seed_everything(args.seed)
 
@@ -521,8 +530,8 @@ def main():
 
     generator = build_generator(args)
     if args.init_radar_checkpoint:
-        if args.model_name != "PWVBirthGrowthNowcastNet":
-            raise ValueError("--init_radar_checkpoint is reserved for PWVBirthGrowthNowcastNet")
+        if args.model_name not in ("PWVBirthGrowthNowcastNet", "PWVContrastiveTriggerNowcastNet"):
+            raise ValueError("--init_radar_checkpoint requires a frozen-backbone PWV model")
         report = load_radar_backbone_weights(generator, args.init_radar_checkpoint, args.device)
         print("initialized fixed radar backbone from {} ({})".format(args.init_radar_checkpoint, report), flush=True)
     if args.freeze_radar_backbone:

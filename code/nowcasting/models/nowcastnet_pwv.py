@@ -9,7 +9,13 @@ from nowcasting.layers.utils import make_grid, warp
 from nowcasting.models.lead_time_conditioning import LeadTimeConditioner
 from nowcasting.layers.shared_blocks import ConvBlock, LightweightUNet
 from nowcasting.models.pwv_attention_source import TemporalPWVCrossAttentionSource
-from nowcasting.models.pwv_features import build_base_pwv_features, build_pwv_features, pwv_feature_group_count
+from nowcasting.models.pwv_features import (
+    build_base_pwv_features,
+    build_contrastive_pwv_features,
+    build_pwv_features,
+    contrastive_pwv_feature_channels,
+    pwv_feature_group_count,
+)
 
 
 class PWVCoupledNet(nn.Module):
@@ -113,6 +119,55 @@ class PWVCoupledNet(nn.Module):
     def _base_pwv_features(self, pwv_input):
         return build_base_pwv_features(pwv_input)
 
+    def _compute_pwv_source_components(
+        self,
+        radar_context,
+        pwv_input,
+        pwv_features,
+        source_pwv_features,
+        source_fused_feature,
+        gate_input,
+        fused_feature,
+        radar_feat,
+        pwv_feat,
+    ):
+        pwv_attention = None
+        if self.pwv_source_type == "attention":
+            pwv_intensity, pwv_attention = self.pwv_source_net(
+                radar_context, pwv_input, fused_feature
+            )
+        else:
+            pwv_intensity = self.pwv_source_net(
+                torch.cat([source_pwv_features, source_fused_feature], dim=1)
+            )
+        source_coupling_logits = self.lead_time(self.source_coupling_net(gate_input), "gate")
+        support_gate_logits = self.lead_time(self.support_gate_net(gate_input), "gate")
+        source_coupling = torch.sigmoid(source_coupling_logits)
+        support_gate = torch.sigmoid(support_gate_logits)
+
+        birth_probability = None
+        growth_probability = None
+        growth_amount = None
+        if self.birth_growth_mode:
+            birth_probability = source_coupling
+            growth_probability = support_gate
+            growth_amount = F.softplus(pwv_intensity)
+            activation = 1.0 - (1.0 - birth_probability) * (1.0 - growth_probability)
+            pwv_contribution = activation * growth_amount
+        else:
+            pwv_contribution = source_coupling * support_gate * pwv_intensity
+        return {
+            "pwv_intensity": pwv_intensity,
+            "source_coupling": source_coupling,
+            "support_gate": support_gate,
+            "birth_probability": birth_probability,
+            "growth_probability": growth_probability,
+            "growth_amount": growth_amount,
+            "pwv_contribution": pwv_contribution,
+            "pwv_attention": pwv_attention,
+            "extra_aux": {},
+        }
+
     def forward(self, all_frames, pwv_frames=None, return_aux=False):
         all_frames = all_frames[:, :, :, :, :1]
         frames = all_frames.permute(0, 1, 4, 2, 3)
@@ -141,37 +196,32 @@ class PWVCoupledNet(nn.Module):
 
         radar_intensity, motion = self.radar_evo_net(input_frames)
         gate_input = torch.cat([radar_context, pwv_features, fused_feature], dim=1)
-        pwv_attention = None
-        if self.pwv_source_type == "attention":
-            pwv_intensity, pwv_attention = self.pwv_source_net(
-                radar_context, pwv_input, fused_feature
-            )
-        else:
-            pwv_intensity = self.pwv_source_net(
-                torch.cat([source_pwv_features, source_fused_feature], dim=1)
-            )
-        source_coupling_logits = self.lead_time(self.source_coupling_net(gate_input), "gate")
-        support_gate_logits = self.lead_time(self.support_gate_net(gate_input), "gate")
-        source_coupling = torch.sigmoid(source_coupling_logits)
-        support_gate = torch.sigmoid(support_gate_logits)
-
-        birth_probability = None
-        growth_probability = None
-        growth_amount = None
-        if self.birth_growth_mode:
-            birth_probability = source_coupling
-            growth_probability = support_gate
-            growth_amount = F.softplus(pwv_intensity)
-            activation = 1.0 - (1.0 - birth_probability) * (1.0 - growth_probability)
-            pwv_contribution = activation * growth_amount
-        else:
-            pwv_contribution = source_coupling * support_gate * pwv_intensity
+        components = self._compute_pwv_source_components(
+            radar_context,
+            pwv_input,
+            pwv_features,
+            source_pwv_features,
+            source_fused_feature,
+            gate_input,
+            fused_feature,
+            radar_feat,
+            pwv_feat,
+        )
+        pwv_intensity = components["pwv_intensity"]
+        source_coupling = components["source_coupling"]
+        support_gate = components["support_gate"]
+        birth_probability = components["birth_probability"]
+        growth_probability = components["growth_probability"]
+        growth_amount = components["growth_amount"]
+        pwv_contribution = components["pwv_contribution"]
+        pwv_attention = components["pwv_attention"]
         source = radar_intensity + pwv_contribution
         source = self.lead_time(source, "source")
+        radar_source = self.lead_time(radar_intensity, "source")
         motion_ = motion.reshape(batch, self.pred_length, 2, height, width)
         motion_ = self.lead_time(motion_, "motion")
         source_ = source.reshape(batch, self.pred_length, 1, height, width)
-        radar_source_ = radar_intensity.reshape(batch, self.pred_length, 1, height, width)
+        radar_source_ = radar_source.reshape(batch, self.pred_length, 1, height, width)
         pwv_source_ = pwv_intensity.reshape(batch, self.pred_length, 1, height, width)
         source_coupling_ = source_coupling.reshape(batch, self.pred_length, 1, height, width)
         support_gate_ = support_gate.reshape(batch, self.pred_length, 1, height, width)
@@ -235,6 +285,7 @@ class PWVCoupledNet(nn.Module):
                 )
             if pwv_attention is not None:
                 aux["pwv_temporal_attention"] = pwv_attention
+            aux.update(components["extra_aux"])
             return aux
         return gen_result
 
@@ -270,3 +321,116 @@ class PWVBirthGrowthNet(PWVCoupledNet):
             for module in self._frozen_radar_modules():
                 module.eval()
         return self
+
+
+class PWVContrastiveTriggerNet(PWVBirthGrowthNet):
+    """Identity-preserving PWV residual gated by radar and moisture evidence.
+
+    The PWV condition is computed contrastively against the same network fed
+    all-zero PWV.  Consequently the contribution is exactly zero for null PWV.
+    Birth and growth each require an AND-like product of radar trigger,
+    positive PWV evidence, and a radar-derived candidate support mask.
+    """
+
+    def __init__(self, configs):
+        super(PWVContrastiveTriggerNet, self).__init__(configs)
+        pwv_base_c = getattr(configs, "pwv_base_channels", 24)
+        fusion_channels = getattr(configs, "fusion_channels", 32)
+        contrastive_channels = contrastive_pwv_feature_channels(configs)
+
+        del self.pwv_source_net
+        del self.source_coupling_net
+        del self.support_gate_net
+        self.radar_trigger_net = LightweightUNet(
+            configs.input_length + fusion_channels,
+            self.pred_length * 2,
+            base_channels=pwv_base_c,
+            final_bias=-1.5,
+        )
+        self.pwv_condition_net = LightweightUNet(
+            contrastive_channels,
+            self.pred_length * 2,
+            base_channels=pwv_base_c,
+        )
+        self.contrastive_amount_net = LightweightUNet(
+            fusion_channels * 2,
+            self.pred_length,
+            base_channels=pwv_base_c,
+            final_bias=-2.0,
+        )
+        self.candidate_threshold = float(
+            getattr(configs, "pwv_candidate_threshold", 0.5)
+        )
+        self.candidate_radius = int(getattr(configs, "pwv_candidate_radius", 2))
+
+    def _candidate_mask(self, radar_context):
+        threshold = self.candidate_threshold / max(self.intensity_scale, 1e-6)
+        recent_echo = radar_context.amax(dim=1, keepdim=True)
+        candidate = torch.clamp(recent_echo / max(threshold, 1e-6), 0.0, 1.0)
+        if self.candidate_radius > 0:
+            kernel = self.candidate_radius * 2 + 1
+            candidate = F.max_pool2d(candidate, kernel_size=kernel, stride=1, padding=self.candidate_radius)
+        return candidate.repeat(1, self.pred_length, 1, 1)
+
+    def _lead_condition_pair(self, logits):
+        first, second = torch.chunk(logits, 2, dim=1)
+        return self.lead_time(first, "gate"), self.lead_time(second, "gate")
+
+    def _compute_pwv_source_components(
+        self,
+        radar_context,
+        pwv_input,
+        pwv_features,
+        source_pwv_features,
+        source_fused_feature,
+        gate_input,
+        fused_feature,
+        radar_feat,
+        pwv_feat,
+    ):
+        radar_birth_logits, radar_growth_logits = self._lead_condition_pair(
+            self.radar_trigger_net(torch.cat([radar_context, radar_feat], dim=1))
+        )
+        radar_birth = torch.sigmoid(radar_birth_logits)
+        radar_growth = torch.sigmoid(radar_growth_logits)
+
+        real_features = build_contrastive_pwv_features(pwv_input, self.configs)
+        null_features = build_contrastive_pwv_features(torch.zeros_like(pwv_input), self.configs)
+        real_birth_logits, real_growth_logits = self._lead_condition_pair(
+            self.pwv_condition_net(real_features)
+        )
+        null_birth_logits, null_growth_logits = self._lead_condition_pair(
+            self.pwv_condition_net(null_features)
+        )
+        birth_evidence = torch.clamp(
+            torch.sigmoid(real_birth_logits) - torch.sigmoid(null_birth_logits), min=0.0
+        )
+        growth_evidence = torch.clamp(
+            torch.sigmoid(real_growth_logits) - torch.sigmoid(null_growth_logits), min=0.0
+        )
+
+        candidate = self._candidate_mask(radar_context)
+        birth_probability = candidate * radar_birth * birth_evidence
+        growth_probability = candidate * radar_growth * growth_evidence
+        activation = 1.0 - (1.0 - birth_probability) * (1.0 - growth_probability)
+        amount_logits = self.contrastive_amount_net(torch.cat([radar_feat, pwv_feat], dim=1))
+        growth_amount = F.softplus(amount_logits)
+        pwv_contribution = activation * growth_amount
+
+        return {
+            "pwv_intensity": amount_logits,
+            "source_coupling": birth_probability,
+            "support_gate": growth_probability,
+            "birth_probability": birth_probability,
+            "growth_probability": growth_probability,
+            "growth_amount": growth_amount,
+            "pwv_contribution": pwv_contribution,
+            "pwv_attention": None,
+            "extra_aux": {
+                "candidate_mask": candidate.unsqueeze(2),
+                "radar_birth_trigger": radar_birth.unsqueeze(2),
+                "radar_growth_trigger": radar_growth.unsqueeze(2),
+                "pwv_birth_evidence": birth_evidence.unsqueeze(2),
+                "pwv_growth_evidence": growth_evidence.unsqueeze(2),
+            },
+        }

@@ -107,6 +107,33 @@ def build_pwv_features(pwv_input, configs):
     return torch.clamp(torch.cat(features, dim=1), -5.0, 5.0)
 
 
+def contrastive_pwv_feature_channels(configs):
+    """Channels for standardized, absolute, moistening, and drying features."""
+    return configs.input_length * (pwv_feature_group_count(configs) + 3)
+
+
+def build_contrastive_pwv_features(pwv_input, configs):
+    """Preserve physical PWV level while separating accumulation from drying.
+
+    The historical V1 features standardize each sample, which is useful for
+    local structure but removes the absolute moisture-sufficiency signal.  The
+    contrastive trigger model keeps those features and appends physical-scale
+    level and signed tendency
+    channels.  Applying this function to an all-zero tensor provides the exact
+    counterfactual used by the identity-preserving source head.
+    """
+    scale = max(float(getattr(configs, "pwv_intensity_scale", 1.0)), 1e-6)
+    absolute = torch.clamp(pwv_input / scale, 0.0, 1.5)
+    delta = torch.zeros_like(pwv_input)
+    delta[:, 1:] = (pwv_input[:, 1:] - pwv_input[:, :-1]) / scale
+    moistening = torch.clamp(delta, 0.0, 1.0)
+    drying = torch.clamp(-delta, 0.0, 1.0)
+    return torch.cat(
+        [build_pwv_features(pwv_input, configs), absolute, moistening, drying],
+        dim=1,
+    )
+
+
 def positive_growth_signal(pwv_input, configs):
     frame_minutes = getattr(configs, "frame_minutes", 6.0)
     windows = parse_tendency_windows(getattr(configs, "pwv_tendency_windows", ""))

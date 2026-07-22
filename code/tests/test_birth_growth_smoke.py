@@ -146,6 +146,21 @@ class BirthGrowthModelSmokeTest(unittest.TestCase):
             self.assertEqual(tuple(aux["pwv_contribution"].shape), (1, 30, 1, 96, 96))
             self.assertTrue(torch.isfinite(aux["prediction"]).all().item())
 
+            trigger_radar = radar[:, :29]
+            trigger_pwv = pwv[:, :29]
+            trigger_args = _model_args(
+                self.device, input_length=9, total_length=29, height=96, width=96,
+                model_name="PWVContrastiveTriggerNowcastNet",
+            )
+            trigger_args.pwv_intensity_scale = 80.0
+            trigger_args.pwv_candidate_threshold = 0.5
+            trigger_args.pwv_candidate_radius = 4
+            trigger_model = build_model(trigger_args).to(self.device).eval()
+            trigger_aux = trigger_model(trigger_radar, trigger_pwv, return_aux=True)
+            self.assertEqual(tuple(trigger_aux["prediction"].shape), (1, 20, 96, 96, 1))
+            self.assertEqual(tuple(trigger_aux["pwv_contribution"].shape), (1, 20, 1, 96, 96))
+            self.assertTrue(torch.isfinite(trigger_aux["prediction"]).all().item())
+
     def test_radar_checkpoint_maps_into_birth_growth_backbone(self):
         radar_args = _model_args(self.device, model_name="NowcastNet")
         pwv_args = _model_args(self.device)
@@ -162,6 +177,41 @@ class BirthGrowthModelSmokeTest(unittest.TestCase):
         radar_value = radar_model.state_dict()["evo_net.inc.double_conv.0.weight"]
         pwv_value = pwv_model.state_dict()["radar_evo_net.inc.double_conv.0.weight"]
         self.assertTrue(torch.equal(radar_value, pwv_value))
+
+    def test_contrastive_trigger_null_pwv_is_exact_radar_identity(self):
+        torch.manual_seed(2026)
+        radar_args = _model_args(
+            self.device, input_length=2, total_length=4, height=32, width=32,
+            model_name="NowcastNet",
+        )
+        trigger_args = _model_args(
+            self.device, input_length=2, total_length=4, height=32, width=32,
+            model_name="PWVContrastiveTriggerNowcastNet",
+        )
+        trigger_args.evo_base_channels = 32
+        trigger_args.pwv_intensity_scale = 80.0
+        trigger_args.pwv_candidate_threshold = 0.5
+        trigger_args.pwv_candidate_radius = 2
+        radar_model = build_model(radar_args).to(self.device).eval()
+        trigger_model = build_model(trigger_args).to(self.device).eval()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = Path(tmp) / "radar.ckpt"
+            torch.save(radar_model.state_dict(), checkpoint)
+            load_radar_backbone_weights(trigger_model, checkpoint, self.device)
+
+        frames = torch.rand(1, 4, 32, 32, 2, device=self.device) * 20.0
+        null_pwv = torch.zeros(1, 4, 32, 32, device=self.device)
+        with torch.no_grad():
+            torch.manual_seed(99)
+            radar_prediction = radar_model(frames)
+            torch.manual_seed(99)
+            aux = trigger_model(frames, null_pwv, return_aux=True)
+
+        self.assertTrue(torch.equal(aux["pwv_contribution"], torch.zeros_like(aux["pwv_contribution"])))
+        self.assertTrue(torch.equal(aux["pwv_birth_evidence"], torch.zeros_like(aux["pwv_birth_evidence"])))
+        self.assertTrue(torch.equal(aux["pwv_growth_evidence"], torch.zeros_like(aux["pwv_growth_evidence"])))
+        self.assertTrue(torch.allclose(aux["prediction"], radar_prediction, atol=1e-6, rtol=1e-6))
 
     def test_horizon_event_metrics_use_disjoint_lead_bins(self):
         bins = parse_horizon_bins("0-1,1-2,2-3")

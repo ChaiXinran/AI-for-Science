@@ -27,6 +27,36 @@ def sanitize(value):
     return value
 
 
+def horizon_event_value(metrics, horizon, threshold, metric):
+    direct = nested(metrics, "horizon_event_metrics", "model", horizon, threshold, metric)
+    if direct is not None:
+        return direct
+    if horizon != "0h-2h":
+        return None
+    parts = [
+        nested(metrics, "horizon_event_metrics", "model", part, threshold)
+        for part in ("0h-1h", "1h-2h")
+    ]
+    if any(part is None for part in parts):
+        return None
+    hit = sum(part.get("hit", 0) for part in parts)
+    miss = sum(part.get("miss", 0) for part in parts)
+    false_alarm = sum(part.get("false_alarm", 0) for part in parts)
+    if metric == "csi":
+        denominator = hit + miss + false_alarm
+        return hit / denominator if denominator else None
+    if metric == "pod":
+        denominator = hit + miss
+        return hit / denominator if denominator else None
+    if metric == "far":
+        denominator = hit + false_alarm
+        return false_alarm / denominator if denominator else None
+    if metric == "bias":
+        denominator = hit + miss
+        return (hit + false_alarm) / denominator if denominator else None
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run_root", required=True)
@@ -88,17 +118,29 @@ def main():
             row["radar_csi_{}".format(key)] = nested(radar, "event_metrics", "model", threshold, "csi")
             row["zero_pwv_csi_{}".format(key)] = nested(zero, "event_metrics", "model", threshold, "csi")
             row["birth_growth_csi_{}".format(key)] = nested(bg, "event_metrics", "model", threshold, "csi")
-            for horizon in ("0h-1h", "1h-2h", "2h-3h"):
+            for horizon in ("0h-1h", "1h-2h", "0h-2h", "2h-3h"):
                 horizon_key = horizon.replace("-", "_to_").replace("h", "h")
-                row["radar_csi_{}_{}".format(key, horizon_key)] = nested(
-                    radar, "horizon_event_metrics", "model", horizon, threshold, "csi"
-                )
-                row["zero_pwv_csi_{}_{}".format(key, horizon_key)] = nested(
-                    zero, "horizon_event_metrics", "model", horizon, threshold, "csi"
-                )
-                row["birth_growth_csi_{}_{}".format(key, horizon_key)] = nested(
-                    bg, "horizon_event_metrics", "model", horizon, threshold, "csi"
-                )
+                for event_metric in ("csi", "pod", "far", "bias"):
+                    row["radar_{}_{}_{}".format(event_metric, key, horizon_key)] = horizon_event_value(
+                        radar, horizon, threshold, event_metric
+                    )
+                    row["zero_pwv_{}_{}_{}".format(event_metric, key, horizon_key)] = horizon_event_value(
+                        zero, horizon, threshold, event_metric
+                    )
+                    row["birth_growth_{}_{}_{}".format(event_metric, key, horizon_key)] = horizon_event_value(
+                        bg, horizon, threshold, event_metric
+                    )
+                radar_horizon_key = "radar_csi_{}_{}".format(key, horizon_key)
+                zero_horizon_key = "zero_pwv_csi_{}_{}".format(key, horizon_key)
+                bg_horizon_key = "birth_growth_csi_{}_{}".format(key, horizon_key)
+                if finite_number(row[bg_horizon_key]) and finite_number(row[radar_horizon_key]):
+                    row["paired_delta_csi_{}_{}_minus_radar".format(key, horizon_key)] = (
+                        row[bg_horizon_key] - row[radar_horizon_key]
+                    )
+                if finite_number(row[bg_horizon_key]) and finite_number(row[zero_horizon_key]):
+                    row["paired_delta_csi_{}_{}_minus_zero_pwv".format(key, horizon_key)] = (
+                        row[bg_horizon_key] - row[zero_horizon_key]
+                    )
         rows.append(row)
     if not rows:
         raise ValueError("No complete seed pairs found under {}".format(args.run_root))

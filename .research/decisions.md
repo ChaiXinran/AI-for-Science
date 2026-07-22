@@ -72,3 +72,57 @@ produce a positive correction without PWV evidence. Any successor must make
 the no-evidence path exactly or approximately identity-preserving and evaluate
 PWV discrimination inside a physically motivated candidate region rather than
 over every pixel.
+
+## 2026-07-22 - Horizon diagnostic retains the PWV hypothesis
+
+**Evidence.** In the 2--3 h bin, real PWV improved CSI10 from 0.05976 for the
+matched zero-PWV head to 0.07023, and CSI20 from 0.01100 to 0.02149. It also
+exceeded radar-only (0.01999 and 0.00010). The same model was harmful at 0--1 h
+and did not consistently beat zero PWV at 1--2 h, so aggregate CSI remained
+worse than radar-only.
+
+**Decision.** Retain the scientific hypothesis that PWV contains useful
+long-lead convective information, but retire the current all-lead dense source
+injection as a publication candidate. The next model must be horizon-selective
+and identity-preserving, with its primary endpoint declared as 2--3 h CSI and
+with aggregate/early-lead degradation retained as safety metrics.
+
+**Next gate.** Before full-data or multi-seed training, implement a small
+matched pilot whose PWV residual is exactly zero under zero PWV and is disabled
+or strongly constrained during 0--1 h. Require improvement over both radar and
+zero-PWV controls at 2--3 h for CSI10 and CSI20 without material early-lead
+degradation.
+
+## 2026-07-22 - Correct primary scope to 0--2 h
+
+**Scope correction.** The project target is 0--2 h precipitation nowcasting;
+2--3 h performance is secondary and cannot justify the main method. Under the
+primary scope, real PWV is strongly harmful at 0--1 h. At 1--2 h it improves
+CSI10 over radar but not over zero PWV, and it is worse than both controls for
+CSI20. Therefore the current experiment does not establish a PWV-attributable
+CSI improvement for the project target.
+
+**Revised decision.** Do not pursue a 2--3 h-selective architecture as the main
+paper direction. Recompute exact pooled 0--2 h CSI/POD/FAR/Bias from existing
+counts, treat the current PWV source formulation as no-go for 0--2 h, and
+reconsider whether PWV should remain a primary modality or only a secondary
+ablation in the next research design.
+
+## 2026-07-22 - Adopt mechanism-named contrastive-trigger iteration
+
+**Naming decision.** Stop using sequential version numbers for active research
+iterations. Name each model by its testable mechanism and bind each run to a
+machine-readable protocol. Historical version labels remain only as archive
+metadata.
+
+**Architecture decision.** Archive the dense additive Birth/Growth source as a
+negative result. The active pilot is `contrastive_trigger`: radar proposes a
+candidate/trigger region, while PWV contributes only positive evidence above
+the same network's null-PWV response. Their AND-like product gates a residual,
+so null PWV has an exact zero contribution and leaves the radar forecast
+unchanged.
+
+**Pilot gate.** In the pre-declared 0--2 h endpoint, real PWV must improve both
+CSI10 and CSI20 over matched radar, null PWV, and temporally reversed PWV,
+without an unacceptable false-alarm or frequency-bias increase. Only a passing
+pilot may advance to full data and multiple seeds.

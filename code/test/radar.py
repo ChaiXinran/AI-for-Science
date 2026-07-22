@@ -76,6 +76,7 @@ def build_parser():
     parser.add_argument("--object_min_area", type=int, default=4)
     parser.add_argument("--object_iou_threshold", type=float, default=0.1)
     parser.add_argument("--no_invert", action="store_true")
+    parser.add_argument("--deterministic_noise", action="store_true")
     return parser
 
 
@@ -1340,6 +1341,9 @@ def main():
         for batch_id, batch in enumerate(loader):
             frames = batch["radar_frames"].float().to(args.device, non_blocking=True)
             target = batch["target_frames"].float().to(args.device, non_blocking=True)
+            if args.deterministic_noise:
+                torch.manual_seed(args.seed + batch_id)
+                torch.cuda.manual_seed_all(args.seed + batch_id)
             pred = model(frames)[..., 0]
             last_input = frames[:, args.input_length - 1, :, :, 0]
             persistence = last_input.unsqueeze(1).repeat(1, args.gen_oc, 1, 1)

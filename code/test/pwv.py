@@ -76,11 +76,11 @@ from test.radar import (
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Test PWV-coupled NowcastNet V2")
+    parser = argparse.ArgumentParser(description="Test a PWV-coupled NowcastNet model")
     parser.add_argument("--data_root", type=str, default="../data/DATA_2025_S/RADAR_2025_S")
     parser.add_argument("--pwv_root", type=str, default="../data/DATA_2025_S/PWV_2025_S")
     parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, default="../results/pwv_coupled_v2")
+    parser.add_argument("--output_dir", type=str, default="../results/pwv_coupled")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--split", choices=["train", "val", "test", "all"], default="test")
@@ -148,6 +148,9 @@ def build_parser():
     parser.add_argument("--birth_high_threshold", type=float, default=10.0)
     parser.add_argument("--growth_delta", type=float, default=5.0)
     parser.add_argument("--birth_probability_threshold", type=float, default=0.5)
+    parser.add_argument("--pwv_candidate_threshold", type=float, default=0.5)
+    parser.add_argument("--pwv_candidate_radius", type=int, default=2)
+    parser.add_argument("--deterministic_noise", action="store_true")
     return parser
 
 
@@ -231,7 +234,7 @@ def main():
     attention_count = 0
     saved = 0
     birth_growth_metrics = None
-    if args.model_name == "PWVBirthGrowthNowcastNet":
+    if args.model_name in ("PWVBirthGrowthNowcastNet", "PWVContrastiveTriggerNowcastNet"):
         birth_growth_metrics = BirthGrowthAccumulator(args.birth_probability_threshold)
 
     with torch.no_grad():
@@ -240,6 +243,9 @@ def main():
             pwv = batch["pwv_frames"].float().to(args.device, non_blocking=True)
             pwv = apply_pwv_control(pwv, args.pwv_control)
             target = batch["target_frames"].float().to(args.device, non_blocking=True)
+            if args.deterministic_noise:
+                torch.manual_seed(args.seed + batch_id)
+                torch.cuda.manual_seed_all(args.seed + batch_id)
             aux = model(frames, pwv, return_aux=True)
             pred = aux["prediction"][..., 0]
             if birth_growth_metrics is not None:

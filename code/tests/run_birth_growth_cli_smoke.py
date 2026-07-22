@@ -1,6 +1,7 @@
 """Run the real train/test CLIs on a tiny temporary paired dataset."""
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -56,6 +57,7 @@ def main():
         out = root / "out"
         radar_ckpt = out / "radar" / "best_state_dict.ckpt"
         pwv_ckpt = out / "pwv" / "best_state_dict.ckpt"
+        trigger_ckpt = out / "contrastive_trigger" / "best_state_dict.ckpt"
         shape = ["--input_length", "2", "--total_length", "4", "--img_height", "32", "--img_width", "32"]
         data = ["--data_root", radar_root, "--split_manifest", manifest, "--require_contiguous"]
         train = [
@@ -69,6 +71,7 @@ def main():
             "--num_save_samples", "0", "--intensity_scale", "35", "--metric_thresholds", "2,10",
             "--neighborhood_metric_thresholds", "10", "--object_thresholds", "10",
             "--cra_thresholds", "10", "--psd_lead_minutes", "6,12", "--cra_lead_minutes", "6,12",
+            "--deterministic_noise",
         ]
 
         run("code/train/radar.py", *data, "--save_dir", out / "radar", "--readme_ckpt", out / "radar.ckpt", *shape, *train)
@@ -92,9 +95,57 @@ def main():
             "--pwv_base_channels", "4", "--fusion_channels", "4", "--pwv_intensity_scale", "80",
             "--pwv_invert", "--pwv_tendency_windows", "6,12", *test,
         )
-        for result in (out / "radar_test" / "metrics.json", out / "pwv_test" / "metrics.json"):
+        run(
+            "code/train/pwv.py", *data, "--pwv_root", pwv_root, "--strict_pwv",
+            "--save_dir", out / "contrastive_trigger", "--readme_ckpt", out / "contrastive_trigger.ckpt",
+            "--init_radar_checkpoint", radar_ckpt, "--freeze_radar_backbone",
+            "--model_name", "PWVContrastiveTriggerNowcastNet", *shape, *train,
+            "--evo_base_channels", "32", "--pwv_base_channels", "4", "--fusion_channels", "4",
+            "--pwv_intensity_scale", "80", "--pwv_invert", "--pwv_tendency_windows", "6,12",
+            "--pwv_candidate_threshold", "0.5", "--pwv_candidate_radius", "2",
+        )
+        for control, result_name in (
+            ("real", "pwv_real"),
+            ("zero", "pwv_null"),
+            ("temporal_reverse", "pwv_temporal_reverse"),
+        ):
+            run(
+                "code/test/pwv.py", *data, "--pwv_root", pwv_root, "--strict_pwv",
+                "--checkpoint", trigger_ckpt, "--output_dir", out / result_name, "--split", "test",
+                "--model_name", "PWVContrastiveTriggerNowcastNet", "--pwv_control", control, *shape,
+                "--ngf", "4", "--lead_time_embed_dim", "4", "--evo_base_channels", "32",
+                "--pwv_base_channels", "4", "--fusion_channels", "4", "--pwv_intensity_scale", "80",
+                "--pwv_invert", "--pwv_tendency_windows", "6,12",
+                "--pwv_candidate_threshold", "0.5", "--pwv_candidate_radius", "2", *test,
+            )
+        for result in (
+            out / "radar_test" / "metrics.json",
+            out / "pwv_test" / "metrics.json",
+            out / "pwv_real" / "metrics.json",
+            out / "pwv_null" / "metrics.json",
+            out / "pwv_temporal_reverse" / "metrics.json",
+        ):
             if not result.exists():
                 raise RuntimeError("Missing CLI smoke result: {}".format(result))
+        radar_metrics = json.loads((out / "radar_test" / "metrics.json").read_text(encoding="utf-8"))
+        zero_metrics = json.loads((out / "pwv_null" / "metrics.json").read_text(encoding="utf-8"))
+        for metric in ("mae", "mse", "rmse", "bias"):
+            delta = abs(radar_metrics["model"][metric] - zero_metrics["model"][metric])
+            print("NULL_IDENTITY_DELTA", metric, delta, flush=True)
+            # Separate CUDA processes may accumulate pixel reductions in a
+            # slightly different order even when their output tensors are
+            # identity-equivalent. MSE also has squared units, so use a tight
+            # combined tolerance instead of one absolute threshold for every
+            # metric. Tensor-level identity is asserted in the unit test.
+            if not math.isclose(
+                radar_metrics["model"][metric],
+                zero_metrics["model"][metric],
+                rel_tol=1e-5,
+                abs_tol=1e-4,
+            ):
+                raise RuntimeError("Contrastive-trigger null-PWV differs from radar-only: {}={}".format(metric, delta))
+        if radar_metrics["event_metrics"]["model"] != zero_metrics["event_metrics"]["model"]:
+            raise RuntimeError("Contrastive-trigger null-PWV event counts differ from radar-only")
         print("CLI_SMOKE_OK", flush=True)
 
 

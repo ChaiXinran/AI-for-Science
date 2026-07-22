@@ -13,13 +13,16 @@ placeholder_segments: []
 ## 1. Research question
 
 **Sharpened RQ** (one sentence, falsifiable):
-Use gridded GNSS-PWV to predict only the positive birth/growth residual relative to a radar-advection baseline.
+针对特定区域的 PWV 辅助雷达端到端短临预测研究。
 
 **Falsification condition** (what would you observe if FALSE):
-_TODO: researcher confirmation required after the first frozen-protocol run._
+CSI 下降明显；期望观察到引入 PWV 后 CSI 有提升，才能认为该方向有前途并继续。
 
 **Smallest answerable version** (1-week prototype scope):
-_TODO: researcher confirmation required; the implemented protocol compares a matched RAIN radar-only model with a frozen-backbone PWV birth/growth branch._
+The researcher approved a 0--2 h pilot using 2,048 training windows and 512
+validation windows. Compare a matched radar baseline with real PWV, null PWV,
+and temporally reversed PWV using one contrastive-trigger checkpoint; do not
+start full-data or multi-seed training unless this pilot passes its CSI gate.
 
 ## 2. Expected mechanism
 
@@ -69,4 +72,8 @@ _TODO: temporal shuffle, spatial shuffle, PWV climatology, and station-distance 
 
 ## Notes
 
-The executable protocol is `code/protocols/pwv_birth_growth_v1.json`; this brief remains draft because the Socratic mechanism, effect-size threshold, and negative-control commitment have not yet been supplied by the researcher.
+The active executable protocol is
+`code/protocols/pwv_contrastive_trigger_pilot.json`. This brief remains draft
+because the researcher-authored causal mechanism and minimum CSI effect size
+have not yet been supplied. Null PWV and temporal reversal are committed pilot
+controls; broader spatial-shuffle and climatology controls remain unconfirmed.
