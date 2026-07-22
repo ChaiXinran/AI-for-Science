@@ -25,6 +25,7 @@ from test.radar import (
     finalize_event_metrics,
     finalize_fss_metrics,
     finalize_horizon_metrics,
+    finalize_horizon_event_metrics,
     finalize_intensity_bin_metrics,
     finalize_labeled_event_metrics,
     finalize_lead_metrics,
@@ -38,6 +39,7 @@ from test.radar import (
     init_eventwise_store,
     init_fss_totals,
     init_horizon_totals,
+    init_horizon_event_counts,
     init_intensity_bin_totals,
     init_labeled_event_counts,
     init_lead_totals,
@@ -57,6 +59,7 @@ from test.radar import (
     summarize_eventwise_store,
     summarize_object_store,
     update_event_counts,
+    update_horizon_event_counts,
     update_cra_store,
     update_eventwise_store,
     update_extreme_cases,
@@ -193,6 +196,8 @@ def main():
     object_thresholds = parse_thresholds(args.object_thresholds)
     model_event_counts = init_event_counts(thresholds)
     persistence_event_counts = init_event_counts(thresholds)
+    model_horizon_event_counts = init_horizon_event_counts(thresholds, horizon_bins)
+    persistence_horizon_event_counts = init_horizon_event_counts(thresholds, horizon_bins)
     model_extreme_event_counts = init_labeled_event_counts(extreme_items)
     persistence_extreme_event_counts = init_labeled_event_counts(extreme_items)
     model_neighborhood_counts = init_event_counts(neighborhood_thresholds)
@@ -249,6 +254,13 @@ def main():
             update_lead_and_horizon(persistence_lead_totals, persistence_horizon_totals, persistence, target, args.frame_minutes, horizon_bins)
             update_event_counts(model_event_counts, pred, target, thresholds)
             update_event_counts(persistence_event_counts, persistence, target, thresholds)
+            update_horizon_event_counts(
+                model_horizon_event_counts, pred, target, thresholds, args.frame_minutes, horizon_bins
+            )
+            update_horizon_event_counts(
+                persistence_horizon_event_counts, persistence, target, thresholds,
+                args.frame_minutes, horizon_bins
+            )
             update_labeled_event_counts(model_extreme_event_counts, pred, target, extreme_items)
             update_labeled_event_counts(persistence_extreme_event_counts, persistence, target, extreme_items)
             update_neighborhood_event_counts(model_neighborhood_counts, pred, target, neighborhood_thresholds, args.neighborhood_size)
@@ -405,6 +417,10 @@ def main():
         "event_metrics": {
             "model": finalize_event_metrics(model_event_counts),
             "persistence": finalize_event_metrics(persistence_event_counts),
+        },
+        "horizon_event_metrics": {
+            "model": finalize_horizon_event_metrics(model_horizon_event_counts),
+            "persistence": finalize_horizon_event_metrics(persistence_horizon_event_counts),
         },
         "extreme_event_metrics": {
             "model": finalize_labeled_event_metrics(model_extreme_event_counts),

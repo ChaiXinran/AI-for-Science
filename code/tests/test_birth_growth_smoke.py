@@ -23,6 +23,12 @@ from nowcasting.birth_growth import (
 from nowcasting.data_provider.custom_png import PngSequenceDataset
 from nowcasting.experiments.common import load_radar_backbone_weights
 from nowcasting.models.registry import build_model
+from test.radar import (
+    finalize_horizon_event_metrics,
+    init_horizon_event_counts,
+    parse_horizon_bins,
+    update_horizon_event_counts,
+)
 
 
 def _model_args(device, input_length=2, total_length=4, height=32, width=32, model_name="PWVBirthGrowthNowcastNet"):
@@ -156,6 +162,21 @@ class BirthGrowthModelSmokeTest(unittest.TestCase):
         radar_value = radar_model.state_dict()["evo_net.inc.double_conv.0.weight"]
         pwv_value = pwv_model.state_dict()["radar_evo_net.inc.double_conv.0.weight"]
         self.assertTrue(torch.equal(radar_value, pwv_value))
+
+    def test_horizon_event_metrics_use_disjoint_lead_bins(self):
+        bins = parse_horizon_bins("0-1,1-2,2-3")
+        counts = init_horizon_event_counts([10.0], bins)
+        prediction = torch.zeros(1, 30, 1, 1)
+        target = torch.zeros_like(prediction)
+        prediction[:, :10] = 10.0
+        target[:, :20] = 10.0
+
+        update_horizon_event_counts(counts, prediction, target, [10.0], 6.0, bins)
+        metrics = finalize_horizon_event_metrics(counts)
+
+        self.assertEqual(metrics["0h-1h"]["10.0"]["csi"], 1.0)
+        self.assertEqual(metrics["1h-2h"]["10.0"]["csi"], 0.0)
+        self.assertTrue(np.isnan(metrics["2h-3h"]["10.0"]["csi"]))
 
 
 class StrictDatasetSmokeTest(unittest.TestCase):

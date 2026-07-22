@@ -48,3 +48,15 @@
   0.169/0.123, respectively).
 - Added a matched PWV pilot runner that reuses the passed radar checkpoint and
   compares zero versus real PWV with identical losses and sample identities.
+
+## 2026-07-22 - Matched PWV pilot diagnosis
+
+- The 512-window zero-PWV and real-PWV evaluations used identical sample hashes.
+- Both source-head variants underperformed the frozen radar forecast; real PWV
+  was worse than zero PWV on MAE, RMSE, CSI10, CSI20, and Birth PR-AUC.
+- Added 0--1 h, 1--2 h, and 2--3 h threshold-event metrics to radar and PWV
+  evaluators and exposed them in the protocol comparison report.
+- Added `RETEST_ONLY=1` to the pilot runner so existing best checkpoints can be
+  re-evaluated with the new metrics without retraining.
+- Local validation: Python compilation passed, all five Birth/Growth smoke tests
+  passed in the `nowcast` environment, and a synthetic horizon-CSI check passed.

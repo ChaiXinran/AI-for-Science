@@ -74,6 +74,9 @@ def main():
             "growth_far": nested(bg, "birth_growth", "growth", "false_alarm_ratio"),
             "growth_positives": nested(bg, "birth_growth", "growth", "positives"),
             "growth_positive_rate": nested(bg, "birth_growth", "growth", "positive_rate"),
+            "zero_pwv_positive_source_mae_active": nested(
+                zero, "birth_growth", "positive_source_mae_active"
+            ),
             "positive_source_mae_active": nested(bg, "birth_growth", "positive_source_mae_active"),
         }
         if row["birth_pr_auc"] is not None and row["zero_pwv_birth_pr_auc"] is not None:
@@ -85,6 +88,17 @@ def main():
             row["radar_csi_{}".format(key)] = nested(radar, "event_metrics", "model", threshold, "csi")
             row["zero_pwv_csi_{}".format(key)] = nested(zero, "event_metrics", "model", threshold, "csi")
             row["birth_growth_csi_{}".format(key)] = nested(bg, "event_metrics", "model", threshold, "csi")
+            for horizon in ("0h-1h", "1h-2h", "2h-3h"):
+                horizon_key = horizon.replace("-", "_to_").replace("h", "h")
+                row["radar_csi_{}_{}".format(key, horizon_key)] = nested(
+                    radar, "horizon_event_metrics", "model", horizon, threshold, "csi"
+                )
+                row["zero_pwv_csi_{}_{}".format(key, horizon_key)] = nested(
+                    zero, "horizon_event_metrics", "model", horizon, threshold, "csi"
+                )
+                row["birth_growth_csi_{}_{}".format(key, horizon_key)] = nested(
+                    bg, "horizon_event_metrics", "model", horizon, threshold, "csi"
+                )
         rows.append(row)
     if not rows:
         raise ValueError("No complete seed pairs found under {}".format(args.run_root))
