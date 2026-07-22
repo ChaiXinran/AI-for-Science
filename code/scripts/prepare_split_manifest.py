@@ -40,6 +40,32 @@ def split_counts(n, train_ratio, val_ratio):
     return train_n, val_n
 
 
+def _normalise_boundary(value):
+    return "".join(character for character in value if character.isdigit())
+
+
+def split_at_explicit_boundaries(events, train_end, val_end):
+    """Split after two inclusive YYYYMMDD boundaries."""
+    train_token = _normalise_boundary(train_end)
+    val_token = _normalise_boundary(val_end)
+    if len(train_token) != 8 or len(val_token) != 8:
+        raise ValueError("Explicit boundaries must be YYYYMMDD or YYYY-MM-DD.")
+    event_tokens = [_normalise_boundary(Path(item["path"]).name) for item in events]
+    try:
+        train_end_index = event_tokens.index(train_token)
+        val_end_index = event_tokens.index(val_token)
+    except ValueError as error:
+        raise ValueError("Explicit boundary date is not present in the discovered events.") from error
+    if not 0 <= train_end_index < val_end_index < len(events) - 1:
+        raise ValueError("Boundaries must leave non-empty chronological train, val, and test splits.")
+    names = [item["path"] for item in events]
+    return {
+        "train": names[: train_end_index + 1],
+        "val": names[train_end_index + 1 : val_end_index + 1],
+        "test": names[val_end_index + 1 :],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_root", required=True)
@@ -47,6 +73,8 @@ def main():
     parser.add_argument("--pwv_root", default="")
     parser.add_argument("--train_ratio", type=float, default=0.7)
     parser.add_argument("--val_ratio", type=float, default=0.15)
+    parser.add_argument("--train_end", default="", help="Inclusive YYYYMMDD boundary; requires --val_end.")
+    parser.add_argument("--val_end", default="", help="Inclusive YYYYMMDD boundary; requires --train_end.")
     parser.add_argument("--seed", type=int, default=2026)
     args = parser.parse_args()
 
@@ -67,15 +95,24 @@ def main():
                     len(missing_pwv), missing_pwv[0]
                 )
             )
-    train_n, val_n = split_counts(len(events), args.train_ratio, args.val_ratio)
-    # Chronological blocking is intentional: it prevents future storms from
-    # leaking into training and makes the split stable across machines.
-    names = [item["path"] for item in events]
-    splits = {
-        "train": names[:train_n],
-        "val": names[train_n:train_n + val_n],
-        "test": names[train_n + val_n:],
-    }
+    if bool(args.train_end) != bool(args.val_end):
+        raise ValueError("--train_end and --val_end must be supplied together.")
+    if args.train_end:
+        splits = split_at_explicit_boundaries(events, args.train_end, args.val_end)
+        boundary_mode = "explicit_meteorological_review"
+        warning = "Locked to explicitly reviewed inclusive date boundaries."
+    else:
+        train_n, val_n = split_counts(len(events), args.train_ratio, args.val_ratio)
+        # Chronological blocking is intentional: it prevents future storms from
+        # leaking into training and makes the split stable across machines.
+        names = [item["path"] for item in events]
+        splits = {
+            "train": names[:train_n],
+            "val": names[train_n:train_n + val_n],
+            "test": names[train_n + val_n:],
+        }
+        boundary_mode = "ratio_draft_requires_review"
+        warning = "Review split boundaries and move adjacent same-storm days to the same split before locking."
     digest_payload = json.dumps(splits, sort_keys=True).encode("utf-8")
     manifest = {
         "protocol_version": 1,
@@ -83,10 +120,16 @@ def main():
         "data_root_name": root.name,
         "grouping": "day_directory_chronological_block",
         "seed_reserved_for_training": args.seed,
-        "train_ratio": args.train_ratio,
-        "val_ratio": args.val_ratio,
+        "requested_train_ratio": args.train_ratio,
+        "requested_val_ratio": args.val_ratio,
+        "actual_ratios": {
+            name: len(items) / len(events) for name, items in splits.items()
+        },
+        "boundary_mode": boundary_mode,
+        "train_end": args.train_end or splits["train"][-1],
+        "val_end": args.val_end or splits["val"][-1],
         "split_sha256": hashlib.sha256(digest_payload).hexdigest(),
-        "warning": "Review split boundaries and move adjacent same-storm days to the same split before locking.",
+        "warning": warning,
         "pwv_pairing_checked": bool(args.pwv_root),
         "missing_pwv_frames": len(missing_pwv),
         "events": events,

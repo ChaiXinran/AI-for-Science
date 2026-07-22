@@ -31,6 +31,20 @@ Inspect the train/validation and validation/test boundaries. If adjacent dates
 belong to the same storm, move them to the same split. Commit or archive this
 exact manifest and then rerun the command.
 
+For the May--August 2025 North China dataset, the reviewed boundaries are
+2025-07-22 and 2025-08-14. Regenerate and lock the manifest without hand-editing:
+
+```bash
+python -u code/scripts/prepare_split_manifest.py \
+  --data_root "${DATA_ROOT}" --pwv_root "${PWV_ROOT}" \
+  --output "${RUN_ROOT}/protocol/split_manifest.json" \
+  --train_end 20250722 --val_end 20250814 --seed 2026
+```
+
+This yields 83 train days, 23 validation days, and 17 test days. The July
+23--30 extreme-rain event and the August 12--14 process remain wholly in the
+validation block; the test block begins on August 15.
+
 Before the full run, use a separate output folder for an end-to-end smoke test:
 
 ```bash

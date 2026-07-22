@@ -1,6 +1,6 @@
 {
   "protocol_id": "pwv_birth_growth_v1",
-  "status": "draft_until_split_manifest_is_manually_reviewed",
+  "status": "reviewed_boundaries_pending_manifest_regeneration",
   "target": {
     "field": "RAIN_2025_S",
     "unit": "mm/h",
@@ -24,9 +24,13 @@
     "stride": 1
   },
   "split": {
-    "unit": "day_directory_minimum; manually merge same-storm adjacent days",
+    "unit": "day_directory with meteorologically reviewed event boundaries",
     "order": "chronological_block",
-    "ratios": [0.70, 0.15, 0.15],
+    "train": "2025-05-01 through 2025-07-22 (83 days)",
+    "validation": "2025-07-23 through 2025-08-14 (23 days)",
+    "test": "2025-08-15 through 2025-08-31 (17 days)",
+    "actual_ratios": [0.6748, 0.1870, 0.1382],
+    "boundary_rationale": "Keep the July 23-30 and August 12-14 North China rain processes out of split boundaries; test begins with the separate process starting August 15.",
     "frozen_by": "split_manifest JSON SHA-256"
   },
   "models": [
