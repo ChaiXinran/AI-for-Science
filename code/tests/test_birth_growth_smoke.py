@@ -57,6 +57,8 @@ def _model_args(device, input_length=2, total_length=4, height=32, width=32, mod
         lambda_positive_source=0.5,
         lambda_source_sparse=0.05,
         source_active_weight=4.0,
+        source_inactive_weight=0.1,
+        birth_loss_normalization="class_balanced",
         device=device,
     )
 
@@ -98,7 +100,8 @@ class BirthGrowthModelSmokeTest(unittest.TestCase):
         self.assertTrue(any(p.grad is not None for p in model.pwv_source_net.parameters()))
         self.assertTrue(all(p.grad is None for p in model.radar_evo_net.parameters()))
         self.assertEqual(set(parts), {
-            "birth", "growth", "positive_source", "source_sparse", "birth_rate", "growth_rate"
+            "birth", "growth", "positive_source", "positive_source_active",
+            "positive_source_inactive", "source_sparse", "birth_rate", "growth_rate"
         })
 
         accumulator = BirthGrowthAccumulator(bins=20)

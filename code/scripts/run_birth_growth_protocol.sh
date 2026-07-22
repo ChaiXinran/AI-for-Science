@@ -17,8 +17,8 @@ TEST_MAX_SAMPLES=0
 if [[ "${SMOKE}" == "1" ]]; then
   EPOCHS=1
   SEEDS="2026"
-  TRAIN_LIMIT_ARGS=(--max_train_samples 16 --max_val_samples 4)
-  TEST_MAX_SAMPLES=4
+  TRAIN_LIMIT_ARGS=(--max_train_samples 64 --max_val_samples 32 --max_samples_strategy uniform)
+  TEST_MAX_SAMPLES=32
 fi
 
 mkdir -p "${RUN_ROOT}/protocol"
@@ -49,6 +49,7 @@ for SEED in ${SEEDS}; do
   python -u code/test/radar.py \
     --checkpoint "${RADAR_CKPT}" --data_root "${DATA_ROOT}" \
     --split_manifest "${SPLIT_MANIFEST}" --require_contiguous --split test --max_samples "${TEST_MAX_SAMPLES}" \
+    --max_samples_strategy uniform \
     --output_dir "${SEED_ROOT}/results/radar" --device "${DEVICE}" \
     --input_length 9 --total_length 39 --img_height 96 --img_width 96 \
     --intensity_scale 35 --batch_size 1 --num_workers "${NUM_WORKERS}" \
@@ -75,6 +76,7 @@ for SEED in ${SEEDS}; do
     --data_root "${DATA_ROOT}" --pwv_root "${PWV_ROOT}" \
     --split_manifest "${SPLIT_MANIFEST}" --require_contiguous --strict_pwv \
     --split test --max_samples "${TEST_MAX_SAMPLES}" --output_dir "${SEED_ROOT}/results/birth_growth_zero" \
+    --max_samples_strategy uniform \
     --device "${DEVICE}" --model_name PWVBirthGrowthNowcastNet --pwv_control zero \
     --input_length 9 --total_length 39 --img_height 96 --img_width 96 \
     --intensity_scale 35 --pwv_intensity_scale 80 --pwv_invert \
@@ -103,6 +105,7 @@ for SEED in ${SEEDS}; do
     --data_root "${DATA_ROOT}" --pwv_root "${PWV_ROOT}" \
     --split_manifest "${SPLIT_MANIFEST}" --require_contiguous --strict_pwv \
     --split test --max_samples "${TEST_MAX_SAMPLES}" --output_dir "${SEED_ROOT}/results/birth_growth" \
+    --max_samples_strategy uniform \
     --device "${DEVICE}" --model_name PWVBirthGrowthNowcastNet \
     --input_length 9 --total_length 39 --img_height 96 --img_width 96 \
     --intensity_scale 35 --pwv_intensity_scale 80 --pwv_invert \

@@ -139,6 +139,7 @@ def build_parser():
     parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
     parser.add_argument("--max_train_samples", type=int, default=0)
     parser.add_argument("--max_val_samples", type=int, default=0)
+    parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="head")
     parser.add_argument("--intensity_scale", type=float, default=128.0)
     parser.add_argument("--pixel_min", type=float, default=0.0)
     parser.add_argument("--pixel_max", type=float, default=255.0)
@@ -202,11 +203,13 @@ def build_parser():
     parser.add_argument("--growth_delta", type=float, default=5.0)
     parser.add_argument("--birth_focal_alpha", type=float, default=0.75)
     parser.add_argument("--birth_focal_gamma", type=float, default=2.0)
+    parser.add_argument("--birth_loss_normalization", choices=["class_balanced", "pixel_mean"], default="class_balanced")
     parser.add_argument("--lambda_birth", type=float, default=0.5)
     parser.add_argument("--lambda_growth", type=float, default=0.5)
     parser.add_argument("--lambda_positive_source", type=float, default=0.5)
     parser.add_argument("--lambda_source_sparse", type=float, default=0.05)
     parser.add_argument("--source_active_weight", type=float, default=4.0)
+    parser.add_argument("--source_inactive_weight", type=float, default=0.1)
     return parser
 
 

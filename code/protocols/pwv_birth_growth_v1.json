@@ -55,6 +55,11 @@
     "growth": "radar_evolution >= 2 mm/h and target-radar_evolution > 5 mm/h",
     "positive_source": "relu(target-radar_evolution)"
   },
+  "imbalance_control": {
+    "classification": "class-balanced focal: positive and negative pixels are normalized separately within each batch",
+    "source_regression": "active and inactive source errors are normalized separately; inactive weight=0.1",
+    "decision_threshold": "PR-AUC is primary; operational probability threshold must be selected on validation only"
+  },
   "seeds": [2026, 2027, 2028],
   "checkpoint_selection": "minimum validation weighted-L1; test metrics are never used for selection",
   "primary_metrics": [

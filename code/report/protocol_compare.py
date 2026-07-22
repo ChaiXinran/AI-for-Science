@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -10,6 +11,20 @@ def nested(obj, *keys):
             return None
         obj = obj.get(key)
     return obj
+
+
+def finite_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def sanitize(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: sanitize(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize(item) for item in value]
+    return value
 
 
 def main():
@@ -53,6 +68,12 @@ def main():
             "growth_pr_auc": nested(bg, "birth_growth", "growth", "pr_auc_histogram"),
             "birth_pod": nested(bg, "birth_growth", "birth", "recall_pod"),
             "birth_far": nested(bg, "birth_growth", "birth", "false_alarm_ratio"),
+            "birth_positives": nested(bg, "birth_growth", "birth", "positives"),
+            "birth_positive_rate": nested(bg, "birth_growth", "birth", "positive_rate"),
+            "growth_pod": nested(bg, "birth_growth", "growth", "recall_pod"),
+            "growth_far": nested(bg, "birth_growth", "growth", "false_alarm_ratio"),
+            "growth_positives": nested(bg, "birth_growth", "growth", "positives"),
+            "growth_positive_rate": nested(bg, "birth_growth", "growth", "positive_rate"),
             "positive_source_mae_active": nested(bg, "birth_growth", "positive_source_mae_active"),
         }
         if row["birth_pr_auc"] is not None and row["zero_pwv_birth_pr_auc"] is not None:
@@ -69,11 +90,11 @@ def main():
         raise ValueError("No complete seed pairs found under {}".format(args.run_root))
     numeric_keys = sorted(
         key for key, value in rows[0].items()
-        if key not in ("seed", "samples") and isinstance(value, (int, float))
+        if key not in ("seed", "samples") and finite_number(value)
     )
     aggregate = {}
     for key in numeric_keys:
-        values = [row[key] for row in rows if isinstance(row.get(key), (int, float))]
+        values = [row[key] for row in rows if finite_number(row.get(key))]
         if values:
             aggregate[key] = {
                 "mean": statistics.mean(values),
@@ -83,7 +104,7 @@ def main():
     for metric in ("mae", "rmse", "csi_10p0", "csi_20p0"):
         radar_key = "radar_{}".format(metric)
         bg_key = "birth_growth_{}".format(metric)
-        values = [row[bg_key] - row[radar_key] for row in rows if row.get(bg_key) is not None and row.get(radar_key) is not None]
+        values = [row[bg_key] - row[radar_key] for row in rows if finite_number(row.get(bg_key)) and finite_number(row.get(radar_key))]
         if values:
             aggregate["paired_delta_{}_minus_radar".format(metric)] = {
                 "mean": statistics.mean(values),
@@ -91,7 +112,7 @@ def main():
                 "n": len(values),
             }
         zero_key = "zero_pwv_{}".format(metric)
-        zero_values = [row[bg_key] - row[zero_key] for row in rows if row.get(bg_key) is not None and row.get(zero_key) is not None]
+        zero_values = [row[bg_key] - row[zero_key] for row in rows if finite_number(row.get(bg_key)) and finite_number(row.get(zero_key))]
         if zero_values:
             aggregate["paired_delta_{}_minus_zero_pwv".format(metric)] = {
                 "mean": statistics.mean(zero_values),
@@ -104,8 +125,9 @@ def main():
         "aggregate_across_seeds": aggregate,
         "interpretation_note": "Seed-level summaries are not event-bootstrap confidence intervals.",
     }
-    Path(args.output).write_text(json.dumps(output, indent=2), encoding="utf-8")
-    print(json.dumps(output, indent=2))
+    output = sanitize(output)
+    Path(args.output).write_text(json.dumps(output, indent=2, allow_nan=False), encoding="utf-8")
+    print(json.dumps(output, indent=2, allow_nan=False))
 
 
 if __name__ == "__main__":

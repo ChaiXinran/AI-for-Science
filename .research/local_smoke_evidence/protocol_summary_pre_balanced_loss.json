@@ -1,0 +1,179 @@
+{
+  "protocol": "pwv_birth_growth_v1",
+  "paired_seed_results": [
+    {
+      "seed": 2026,
+      "samples": 32,
+      "sample_sha256": "1a296abe2f260d029772ea7479495399616f4270e2bbe74a523202172a413dae",
+      "radar_mae": 0.28179466040046125,
+      "birth_growth_mae": 0.31931590724874426,
+      "radar_rmse": 1.4673684271745246,
+      "zero_pwv_mae": 0.31928187432112515,
+      "zero_pwv_rmse": 1.4628740025173759,
+      "birth_growth_rmse": 1.4629855664575646,
+      "zero_pwv_birth_pr_auc": 0.006731232962436924,
+      "birth_pr_auc": 0.003317164324350654,
+      "zero_pwv_growth_pr_auc": 0.014265345887141304,
+      "growth_pr_auc": 0.002216922549597933,
+      "birth_pod": 3.606983119319002e-05,
+      "birth_far": 0.9996072270227808,
+      "positive_source_mae_active": 13.200592840605262,
+      "birth_pr_auc_delta_vs_zero_pwv": -0.0034140686380862697,
+      "growth_pr_auc_delta_vs_zero_pwv": -0.01204842333754337,
+      "radar_csi_10p0": 0.0,
+      "zero_pwv_csi_10p0": 0.0,
+      "birth_growth_csi_10p0": 0.0,
+      "radar_csi_20p0": 0.0,
+      "zero_pwv_csi_20p0": 0.0,
+      "birth_growth_csi_20p0": 0.0
+    }
+  ],
+  "aggregate_across_seeds": {
+    "birth_far": {
+      "mean": 0.9996072270227808,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_growth_csi_10p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_growth_csi_20p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_growth_mae": {
+      "mean": 0.31931590724874426,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_growth_rmse": {
+      "mean": 1.4629855664575646,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_pod": {
+      "mean": 3.606983119319002e-05,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_pr_auc": {
+      "mean": 0.003317164324350654,
+      "std": 0.0,
+      "n": 1
+    },
+    "birth_pr_auc_delta_vs_zero_pwv": {
+      "mean": -0.0034140686380862697,
+      "std": 0.0,
+      "n": 1
+    },
+    "growth_pr_auc": {
+      "mean": 0.002216922549597933,
+      "std": 0.0,
+      "n": 1
+    },
+    "growth_pr_auc_delta_vs_zero_pwv": {
+      "mean": -0.01204842333754337,
+      "std": 0.0,
+      "n": 1
+    },
+    "positive_source_mae_active": {
+      "mean": 13.200592840605262,
+      "std": 0.0,
+      "n": 1
+    },
+    "radar_csi_10p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "radar_csi_20p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "radar_mae": {
+      "mean": 0.28179466040046125,
+      "std": 0.0,
+      "n": 1
+    },
+    "radar_rmse": {
+      "mean": 1.4673684271745246,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_birth_pr_auc": {
+      "mean": 0.006731232962436924,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_csi_10p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_csi_20p0": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_growth_pr_auc": {
+      "mean": 0.014265345887141304,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_mae": {
+      "mean": 0.31928187432112515,
+      "std": 0.0,
+      "n": 1
+    },
+    "zero_pwv_rmse": {
+      "mean": 1.4628740025173759,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_mae_minus_radar": {
+      "mean": 0.03752124684828301,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_mae_minus_zero_pwv": {
+      "mean": 3.403292761910981e-05,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_rmse_minus_radar": {
+      "mean": -0.004382860716960035,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_rmse_minus_zero_pwv": {
+      "mean": 0.00011156394018874138,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_csi_10p0_minus_radar": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_csi_10p0_minus_zero_pwv": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_csi_20p0_minus_radar": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    },
+    "paired_delta_csi_20p0_minus_zero_pwv": {
+      "mean": 0.0,
+      "std": 0.0,
+      "n": 1
+    }
+  },
+  "interpretation_note": "Seed-level summaries are not event-bootstrap confidence intervals."
+}

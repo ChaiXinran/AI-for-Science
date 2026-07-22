@@ -77,6 +77,7 @@ def build_parser():
     parser.add_argument("--frame_minutes", type=float, default=6.0)
     parser.add_argument("--max_train_samples", type=int, default=0)
     parser.add_argument("--max_val_samples", type=int, default=0)
+    parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="head")
     parser.add_argument("--intensity_scale", type=float, default=128.0)
     parser.add_argument("--pixel_min", type=float, default=0.0)
     parser.add_argument("--pixel_max", type=float, default=255.0)

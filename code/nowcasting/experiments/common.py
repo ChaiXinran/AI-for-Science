@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import random
 from pathlib import Path
@@ -9,6 +10,17 @@ from torch.utils.data import DataLoader
 
 from nowcasting.data_provider.custom_png import PngSequenceDataset
 from nowcasting.models.registry import build_model
+
+
+def sanitize_json_numbers(value):
+    """Replace NaN/Inf recursively so artifacts are strict RFC-compliant JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: sanitize_json_numbers(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [sanitize_json_numbers(item) for item in value]
+    return value
 
 
 def seed_everything(seed):
@@ -65,6 +77,7 @@ def make_png_dataloader(args, split, max_samples=None, shuffle=None, drop_last=N
         "split_manifest": getattr(args, "split_manifest", ""),
         "frame_minutes": getattr(args, "frame_minutes", 6.0),
         "require_contiguous": getattr(args, "require_contiguous", False),
+        "max_samples_strategy": getattr(args, "max_samples_strategy", "head"),
     }
     if has_pwv:
         dataset_kwargs.update(

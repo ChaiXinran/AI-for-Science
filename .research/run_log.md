@@ -21,3 +21,19 @@
 - Added repeatable unit smoke tests for strict data pairing/provenance, PWV controls, Birth/Growth losses and metrics, frozen-backbone gradients, radar-checkpoint mapping, and the exact 9-input/30-output 96x96 tensor contract.
 - Found and fixed a hard-coded noise-projector reshape that was incompatible with the frozen 96x96 protocol; both radar and PWV models now reshape from the actual noise-grid dimensions.
 - Five GPU unit tests passed. A real command-line smoke run also completed radar train/test and PWV Birth/Growth train/test on temporary paired synthetic data, producing checkpoints and metrics successfully.
+
+## 2026-07-22 — Real-data prevalence audit and representative smoke
+
+- Audited all 29,511 local `RAIN_2025_S` frames under the reviewed split. Test
+  windows containing at least one 10/20 mm/h target pixel are 46.9%/26.9%, but
+  unique strong-rain pixel rates are only 0.726%/0.174%.
+- The original four-sample smoke selected only the first test windows. Added
+  deterministic uniform limited-sample selection and expanded smoke mode to
+  64 train, 32 validation, and 32 test windows.
+- Replaced non-finite JSON numbers with `null` and enforced strict JSON output.
+- A one-epoch real-data CUDA smoke completed for radar, zero-PWV, and real-PWV.
+  The radar baseline still had CSI=0 at 10/20 mm/h, so no PWV effectiveness
+  conclusion is permitted from this run.
+- The radar-relative labels were approximately 0.023% Birth and 0.022% Growth
+  in the smoke training subset. Replaced globally averaged focal/source losses
+  with separately normalized positive/negative and active/inactive losses.

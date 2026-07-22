@@ -31,6 +31,7 @@ class PngSequenceDataset(Dataset):
         img_width=96,
         stride=1,
         max_samples=0,
+        max_samples_strategy="head",
         intensity_scale=128.0,
         pixel_min=0.0,
         pixel_max=255.0,
@@ -63,6 +64,7 @@ class PngSequenceDataset(Dataset):
         self.frame_minutes = float(frame_minutes)
         self.require_contiguous = bool(require_contiguous)
         self.strict_pwv = bool(strict_pwv)
+        self.max_samples_strategy = max_samples_strategy
         if self.pixel_max <= self.pixel_min:
             raise ValueError("pixel_max must be greater than pixel_min.")
         if self.pwv_pixel_max <= self.pwv_pixel_min:
@@ -95,8 +97,15 @@ class PngSequenceDataset(Dataset):
             else:
                 raise ValueError("Unknown split: {}".format(split))
 
-        if max_samples and max_samples > 0:
-            windows = windows[:max_samples]
+        if max_samples and max_samples > 0 and max_samples < len(windows):
+            if max_samples_strategy == "head":
+                windows = windows[:max_samples]
+            elif max_samples_strategy == "uniform":
+                indices = np.linspace(0, len(windows) - 1, num=max_samples)
+                indices = np.rint(indices).astype(int)
+                windows = [windows[index] for index in indices]
+            else:
+                raise ValueError("Unknown max_samples_strategy: {}".format(max_samples_strategy))
         if not windows:
             raise ValueError("Split '{}' is empty. Adjust ratios or max_samples.".format(split))
         self.windows = windows
@@ -183,6 +192,7 @@ class PngSequenceDataset(Dataset):
             "split_manifest": str(self.split_manifest) if self.split_manifest else "",
             "frame_minutes": self.frame_minutes,
             "require_contiguous": self.require_contiguous,
+            "max_samples_strategy": self.max_samples_strategy,
             "samples": len(records),
             "sample_sha256": hashlib.sha256(payload).hexdigest(),
             "records": records,

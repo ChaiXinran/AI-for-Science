@@ -15,6 +15,7 @@ from nowcasting.experiments.common import (
     load_model_state,
     make_png_dataloader,
     save_dataset_provenance,
+    sanitize_json_numbers,
     seed_everything,
 )
 from test.radar import (
@@ -107,6 +108,7 @@ def build_parser():
     parser.add_argument("--strict_pwv", action="store_true")
     parser.add_argument("--pwv_control", choices=["real", "zero", "temporal_reverse"], default="real")
     parser.add_argument("--max_samples", type=int, default=20)
+    parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="head")
     parser.add_argument("--num_save_samples", type=int, default=10)
     parser.add_argument("--intensity_scale", type=float, default=128.0)
     parser.add_argument("--pixel_min", type=float, default=0.0)
@@ -443,9 +445,10 @@ def main():
         },
         "birth_growth": birth_growth_metrics.finalize() if birth_growth_metrics is not None else None,
     }
+    metrics = sanitize_json_numbers(metrics)
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2)
-    print(json.dumps(metrics, indent=2), flush=True)
+        json.dump(metrics, f, indent=2, allow_nan=False)
+    print(json.dumps(metrics, indent=2, allow_nan=False), flush=True)
 
 
 if __name__ == "__main__":

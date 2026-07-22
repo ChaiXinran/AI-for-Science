@@ -1,0 +1,470 @@
+{
+  "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+  "split_sha256": "dfc9c425046c04d5f35712f331d7516f941b390d7a3fe7798ef2156ef13816ce",
+  "intensity_scale": 35.0,
+  "input_length": 9,
+  "total_length": 39,
+  "thresholds": [
+    2.0,
+    10.0,
+    20.0
+  ],
+  "splits": {
+    "train": {
+      "days": 83,
+      "frames": 19920,
+      "windows": 16766,
+      "unique_frame_pixel_count": 92030400,
+      "six_minute_transition_pixel_count": 91646940,
+      "six_minute_birth_count": 0,
+      "six_minute_birth_rate": 0.0,
+      "six_minute_growth_count": 5,
+      "six_minute_growth_rate": 5.455719525387318e-08,
+      "by_threshold": {
+        "2": {
+          "unique_pixel_count": 1632205,
+          "unique_pixel_rate": 0.017735498270136825,
+          "positive_frames": 6434,
+          "positive_frame_rate": 0.32299196787148593,
+          "positive_windows": 7551,
+          "positive_window_rate": 0.450375760467613,
+          "target_pixel_occurrences_across_windows": 40104975
+        },
+        "10": {
+          "unique_pixel_count": 112559,
+          "unique_pixel_rate": 0.0012230632486656583,
+          "positive_frames": 2173,
+          "positive_frame_rate": 0.1090863453815261,
+          "positive_windows": 3757,
+          "positive_window_rate": 0.22408445663843493,
+          "target_pixel_occurrences_across_windows": 2464073
+        },
+        "20": {
+          "unique_pixel_count": 12984,
+          "unique_pixel_rate": 0.00014108381578261097,
+          "positive_frames": 368,
+          "positive_frame_rate": 0.018473895582329317,
+          "positive_windows": 1166,
+          "positive_window_rate": 0.06954550876774425,
+          "target_pixel_occurrences_across_windows": 291157
+        }
+      },
+      "top_days_by_10mm_pixels": [
+        {
+          "day": "202506/20250630",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 81323,
+          "frames_ge_2": 233,
+          "pixels_ge_10": 21431,
+          "frames_ge_10": 156,
+          "pixels_ge_20": 5384,
+          "frames_ge_20": 40
+        },
+        {
+          "day": "202506/20250619",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 45493,
+          "frames_ge_2": 125,
+          "pixels_ge_10": 13870,
+          "frames_ge_10": 40,
+          "pixels_ge_20": 3008,
+          "frames_ge_20": 24
+        },
+        {
+          "day": "202507/20250702",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 107191,
+          "frames_ge_2": 223,
+          "pixels_ge_10": 11077,
+          "frames_ge_10": 176,
+          "pixels_ge_20": 1338,
+          "frames_ge_20": 89
+        },
+        {
+          "day": "202506/20250614",
+          "frames": 240,
+          "max_mm_h": 25.39215660095215,
+          "pixels_ge_2": 144494,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 8086,
+          "frames_ge_10": 171,
+          "pixels_ge_20": 116,
+          "frames_ge_20": 17
+        },
+        {
+          "day": "202506/20250628",
+          "frames": 240,
+          "max_mm_h": 26.352941513061523,
+          "pixels_ge_2": 70177,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 7506,
+          "frames_ge_10": 123,
+          "pixels_ge_20": 546,
+          "frames_ge_20": 23
+        },
+        {
+          "day": "202507/20250701",
+          "frames": 240,
+          "max_mm_h": 19.352941513061523,
+          "pixels_ge_2": 58603,
+          "frames_ge_2": 166,
+          "pixels_ge_10": 5890,
+          "frames_ge_10": 46,
+          "pixels_ge_20": 0,
+          "frames_ge_20": 0
+        },
+        {
+          "day": "202507/20250707",
+          "frames": 240,
+          "max_mm_h": 31.843137741088867,
+          "pixels_ge_2": 67301,
+          "frames_ge_2": 158,
+          "pixels_ge_10": 5724,
+          "frames_ge_10": 85,
+          "pixels_ge_20": 217,
+          "frames_ge_20": 19
+        },
+        {
+          "day": "202506/20250609",
+          "frames": 240,
+          "max_mm_h": 30.60784339904785,
+          "pixels_ge_2": 20240,
+          "frames_ge_2": 71,
+          "pixels_ge_10": 5526,
+          "frames_ge_10": 32,
+          "pixels_ge_20": 1302,
+          "frames_ge_20": 7
+        },
+        {
+          "day": "202507/20250722",
+          "frames": 240,
+          "max_mm_h": 22.78431510925293,
+          "pixels_ge_2": 28915,
+          "frames_ge_2": 103,
+          "pixels_ge_10": 3206,
+          "frames_ge_10": 26,
+          "pixels_ge_20": 45,
+          "frames_ge_20": 3
+        },
+        {
+          "day": "202505/20250509",
+          "frames": 240,
+          "max_mm_h": 21.411766052246094,
+          "pixels_ge_2": 96120,
+          "frames_ge_2": 182,
+          "pixels_ge_10": 3041,
+          "frames_ge_10": 73,
+          "pixels_ge_20": 9,
+          "frames_ge_20": 4
+        }
+      ]
+    },
+    "val": {
+      "days": 23,
+      "frames": 5520,
+      "windows": 4646,
+      "unique_frame_pixel_count": 25502400,
+      "six_minute_transition_pixel_count": 25396140,
+      "six_minute_birth_count": 119,
+      "six_minute_birth_rate": 4.685751456717438e-06,
+      "six_minute_growth_count": 734,
+      "six_minute_growth_rate": 2.890202999353445e-05,
+      "by_threshold": {
+        "2": {
+          "unique_pixel_count": 1090229,
+          "unique_pixel_rate": 0.04275005489679403,
+          "positive_frames": 3351,
+          "positive_frame_rate": 0.6070652173913044,
+          "positive_windows": 3352,
+          "positive_window_rate": 0.7214808437365475,
+          "target_pixel_occurrences_across_windows": 28365517
+        },
+        "10": {
+          "unique_pixel_count": 144159,
+          "unique_pixel_rate": 0.005652762092979484,
+          "positive_frames": 1829,
+          "positive_frame_rate": 0.3313405797101449,
+          "positive_windows": 2466,
+          "positive_window_rate": 0.530779164873009,
+          "target_pixel_occurrences_across_windows": 4014658
+        },
+        "20": {
+          "unique_pixel_count": 28643,
+          "unique_pixel_rate": 0.0011231491938013677,
+          "positive_frames": 702,
+          "positive_frame_rate": 0.12717391304347825,
+          "positive_windows": 1487,
+          "positive_window_rate": 0.32006026689625483,
+          "target_pixel_occurrences_across_windows": 825651
+        }
+      },
+      "top_days_by_10mm_pixels": [
+        {
+          "day": "202508/20250805",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 74021,
+          "frames_ge_2": 140,
+          "pixels_ge_10": 28536,
+          "frames_ge_10": 117,
+          "pixels_ge_20": 9320,
+          "frames_ge_20": 61
+        },
+        {
+          "day": "202507/20250725",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 157545,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 25078,
+          "frames_ge_10": 205,
+          "pixels_ge_20": 2972,
+          "frames_ge_20": 89
+        },
+        {
+          "day": "202508/20250808",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 150070,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 17492,
+          "frames_ge_10": 120,
+          "pixels_ge_20": 5461,
+          "frames_ge_20": 47
+        },
+        {
+          "day": "202507/20250724",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 98300,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 12532,
+          "frames_ge_10": 197,
+          "pixels_ge_20": 2607,
+          "frames_ge_20": 108
+        },
+        {
+          "day": "202507/20250728",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 103351,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 12360,
+          "frames_ge_10": 201,
+          "pixels_ge_20": 1067,
+          "frames_ge_20": 71
+        },
+        {
+          "day": "202508/20250804",
+          "frames": 240,
+          "max_mm_h": 33.90196228027344,
+          "pixels_ge_2": 91658,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 9247,
+          "frames_ge_10": 169,
+          "pixels_ge_20": 991,
+          "frames_ge_20": 88
+        },
+        {
+          "day": "202507/20250723",
+          "frames": 240,
+          "max_mm_h": 29.784313201904297,
+          "pixels_ge_2": 78282,
+          "frames_ge_2": 239,
+          "pixels_ge_10": 8966,
+          "frames_ge_10": 128,
+          "pixels_ge_20": 1151,
+          "frames_ge_20": 16
+        },
+        {
+          "day": "202507/20250729",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 42915,
+          "frames_ge_2": 124,
+          "pixels_ge_10": 7113,
+          "frames_ge_10": 65,
+          "pixels_ge_20": 1527,
+          "frames_ge_20": 23
+        },
+        {
+          "day": "202508/20250812",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 51919,
+          "frames_ge_2": 209,
+          "pixels_ge_10": 5342,
+          "frames_ge_10": 73,
+          "pixels_ge_20": 571,
+          "frames_ge_20": 34
+        },
+        {
+          "day": "202507/20250727",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 38791,
+          "frames_ge_2": 223,
+          "pixels_ge_10": 5331,
+          "frames_ge_10": 124,
+          "pixels_ge_20": 1063,
+          "frames_ge_20": 40
+        }
+      ]
+    },
+    "test": {
+      "days": 17,
+      "frames": 4071,
+      "windows": 3425,
+      "unique_frame_pixel_count": 18808020,
+      "six_minute_transition_pixel_count": 18729480,
+      "six_minute_birth_count": 4,
+      "six_minute_birth_rate": 2.1356706112502855e-07,
+      "six_minute_growth_count": 1701,
+      "six_minute_growth_rate": 9.081939274341839e-05,
+      "by_threshold": {
+        "2": {
+          "unique_pixel_count": 1009629,
+          "unique_pixel_rate": 0.053680770224616946,
+          "positive_frames": 2612,
+          "positive_frame_rate": 0.641611397690985,
+          "positive_windows": 2903,
+          "positive_window_rate": 0.8475912408759124,
+          "target_pixel_occurrences_across_windows": 25943604
+        },
+        "10": {
+          "unique_pixel_count": 136486,
+          "unique_pixel_rate": 0.007256797897918016,
+          "positive_frames": 1111,
+          "positive_frame_rate": 0.27290591992139523,
+          "positive_windows": 1608,
+          "positive_window_rate": 0.46948905109489053,
+          "target_pixel_occurrences_across_windows": 3814762
+        },
+        "20": {
+          "unique_pixel_count": 32775,
+          "unique_pixel_rate": 0.0017426076748110646,
+          "positive_frames": 398,
+          "positive_frame_rate": 0.09776467698354213,
+          "positive_windows": 921,
+          "positive_window_rate": 0.2689051094890511,
+          "target_pixel_occurrences_across_windows": 890563
+        }
+      },
+      "top_days_by_10mm_pixels": [
+        {
+          "day": "202508/20250827",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 244697,
+          "frames_ge_2": 236,
+          "pixels_ge_10": 34742,
+          "frames_ge_10": 165,
+          "pixels_ge_20": 14675,
+          "frames_ge_20": 92
+        },
+        {
+          "day": "202508/20250819",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 100968,
+          "frames_ge_2": 240,
+          "pixels_ge_10": 21015,
+          "frames_ge_10": 187,
+          "pixels_ge_20": 6213,
+          "frames_ge_20": 75
+        },
+        {
+          "day": "202508/20250824",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 59256,
+          "frames_ge_2": 215,
+          "pixels_ge_10": 17027,
+          "frames_ge_10": 86,
+          "pixels_ge_20": 4617,
+          "frames_ge_20": 41
+        },
+        {
+          "day": "202508/20250816",
+          "frames": 240,
+          "max_mm_h": 22.64706039428711,
+          "pixels_ge_2": 76291,
+          "frames_ge_2": 181,
+          "pixels_ge_10": 16974,
+          "frames_ge_10": 89,
+          "pixels_ge_20": 47,
+          "frames_ge_20": 4
+        },
+        {
+          "day": "202508/20250815",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 121248,
+          "frames_ge_2": 235,
+          "pixels_ge_10": 14338,
+          "frames_ge_10": 181,
+          "pixels_ge_20": 3624,
+          "frames_ge_20": 61
+        },
+        {
+          "day": "202508/20250818",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 68879,
+          "frames_ge_2": 180,
+          "pixels_ge_10": 11902,
+          "frames_ge_10": 117,
+          "pixels_ge_20": 1319,
+          "frames_ge_20": 62
+        },
+        {
+          "day": "202508/20250823",
+          "frames": 240,
+          "max_mm_h": 32.11764907836914,
+          "pixels_ge_2": 73048,
+          "frames_ge_2": 224,
+          "pixels_ge_10": 9314,
+          "frames_ge_10": 83,
+          "pixels_ge_20": 1800,
+          "frames_ge_20": 22
+        },
+        {
+          "day": "202508/20250821",
+          "frames": 240,
+          "max_mm_h": 35.0,
+          "pixels_ge_2": 84873,
+          "frames_ge_2": 217,
+          "pixels_ge_10": 5547,
+          "frames_ge_10": 84,
+          "pixels_ge_20": 424,
+          "frames_ge_20": 34
+        },
+        {
+          "day": "202508/20250820",
+          "frames": 240,
+          "max_mm_h": 23.05882453918457,
+          "pixels_ge_2": 51829,
+          "frames_ge_2": 210,
+          "pixels_ge_10": 4285,
+          "frames_ge_10": 88,
+          "pixels_ge_20": 56,
+          "frames_ge_20": 7
+        },
+        {
+          "day": "202508/20250829",
+          "frames": 240,
+          "max_mm_h": 12.901961326599121,
+          "pixels_ge_2": 19180,
+          "frames_ge_2": 93,
+          "pixels_ge_10": 1194,
+          "frames_ge_10": 9,
+          "pixels_ge_20": 0,
+          "frames_ge_20": 0
+        }
+      ]
+    }
+  }
+}

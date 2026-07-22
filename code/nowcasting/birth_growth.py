@@ -26,11 +26,23 @@ def birth_growth_targets(radar_evolution, target, low_threshold, high_threshold,
     }
 
 
-def focal_binary_probability_loss(probability, target, alpha=0.75, gamma=2.0):
+def focal_binary_probability_loss(
+    probability, target, alpha=0.75, gamma=2.0, normalization="class_balanced"
+):
     probability = probability.clamp(1e-5, 1.0 - 1e-5)
     pt = probability * target + (1.0 - probability) * (1.0 - target)
-    alpha_t = alpha * target + (1.0 - alpha) * (1.0 - target)
-    return (-alpha_t * (1.0 - pt).pow(gamma) * torch.log(pt)).mean()
+    focal = -(1.0 - pt).pow(gamma) * torch.log(pt)
+    if normalization == "pixel_mean":
+        alpha_t = alpha * target + (1.0 - alpha) * (1.0 - target)
+        return (alpha_t * focal).mean()
+    if normalization != "class_balanced":
+        raise ValueError("Unknown focal normalization: {}".format(normalization))
+    positive = target > 0.5
+    negative = ~positive
+    zero = focal.sum() * 0.0
+    positive_loss = focal[positive].mean() if positive.any() else zero
+    negative_loss = focal[negative].mean() if negative.any() else zero
+    return alpha * positive_loss + (1.0 - alpha) * negative_loss
 
 
 def birth_growth_losses(aux, target, args):
@@ -45,14 +57,21 @@ def birth_growth_losses(aux, target, args):
     growth_probability = aux["growth_probability"][:, :, 0]
     contribution = aux["pwv_contribution"][:, :, 0]
     birth_loss = focal_binary_probability_loss(
-        birth_probability, labels["birth"], args.birth_focal_alpha, args.birth_focal_gamma
+        birth_probability, labels["birth"], args.birth_focal_alpha, args.birth_focal_gamma,
+        getattr(args, "birth_loss_normalization", "class_balanced"),
     )
     growth_loss = focal_binary_probability_loss(
-        growth_probability, labels["growth"], args.birth_focal_alpha, args.birth_focal_gamma
+        growth_probability, labels["growth"], args.birth_focal_alpha, args.birth_focal_gamma,
+        getattr(args, "birth_loss_normalization", "class_balanced"),
     )
     active = torch.clamp(labels["birth"] + labels["growth"], 0.0, 1.0)
-    source_weight = 1.0 + args.source_active_weight * active
-    source_loss = (source_weight * (contribution - labels["positive_source"]).abs()).mean()
+    active_mask = active > 0.5
+    inactive_mask = ~active_mask
+    source_error = (contribution - labels["positive_source"]).abs()
+    zero = source_error.sum() * 0.0
+    source_active_loss = source_error[active_mask].mean() if active_mask.any() else zero
+    source_inactive_loss = source_error[inactive_mask].mean() if inactive_mask.any() else zero
+    source_loss = source_active_loss + args.source_inactive_weight * source_inactive_loss
     sparse_loss = (contribution * (1.0 - active)).mean()
     total = (
         args.lambda_birth * birth_loss
@@ -64,6 +83,8 @@ def birth_growth_losses(aux, target, args):
         "birth": birth_loss.detach(),
         "growth": growth_loss.detach(),
         "positive_source": source_loss.detach(),
+        "positive_source_active": source_active_loss.detach(),
+        "positive_source_inactive": source_inactive_loss.detach(),
         "source_sparse": sparse_loss.detach(),
         "birth_rate": labels["birth"].mean().detach(),
         "growth_rate": labels["growth"].mean().detach(),

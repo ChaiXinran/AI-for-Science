@@ -45,7 +45,9 @@ This yields 83 train days, 23 validation days, and 17 test days. The July
 23--30 extreme-rain event and the August 12--14 process remain wholly in the
 validation block; the test block begins on August 15.
 
-Before the full run, use a separate output folder for an end-to-end smoke test:
+Before the full run, use a separate output folder for an end-to-end smoke test.
+Smoke mode uses 64 uniformly spaced training windows and 32 validation/test
+windows, so rare-event metrics are less likely to be empty:
 
 ```bash
 export RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_smoke

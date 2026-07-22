@@ -18,3 +18,21 @@ expansion are out of scope until this comparison establishes a PWV signal.
 
 **Kill condition.** Stop expanding the model if event-held-out birth/growth
 metrics fail to improve or later fail shuffled/climatology controls.
+
+## 2026-07-22 — Lock meteorological boundaries and balance rare-event losses
+
+**Split decision.** Use train through 2025-07-22, validation from 2025-07-23
+through 2025-08-14, and test from 2025-08-15. This keeps the July 23--30 and
+August 12--14 rain processes out of split boundaries.
+
+**Sampling decision.** Full experiments remain exhaustive. Limited smoke runs
+must sample uniformly across each chronological split rather than taking the
+first windows, and must not be interpreted as scientific estimates.
+
+**Loss decision.** Birth and growth pixels occur at roughly 1e-4 to 1e-3 rates
+relative to the frozen evolution field. Normalize focal losses separately over
+positive and negative pixels, and normalize source regression separately over
+active and inactive pixels. Apply the same losses to real- and zero-PWV heads.
+
+**Gate before PWV interpretation.** Do not interpret PWV deltas until the
+matched radar-only checkpoint has non-zero validation/test skill at 10 mm/h.
