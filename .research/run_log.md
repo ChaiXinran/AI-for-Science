@@ -37,3 +37,14 @@
 - The radar-relative labels were approximately 0.023% Birth and 0.022% Growth
   in the smoke training subset. Replaced globally averaged focal/source losses
   with separately normalized positive/negative and active/inactive losses.
+
+## 2026-07-22 — Server radar gate
+
+- The 2048-train/512-validation radar pilot trained for 10 epochs without
+  instability; validation weighted-L1 improved from 0.918 to a best 0.745 at
+  epoch 7.
+- On 512 held-out windows, model MAE/RMSE were 0.163/1.096, and CSI at 10/20
+  mm/h was 0.239/0.201. All improved over persistence (0.209/1.360 and
+  0.169/0.123, respectively).
+- Added a matched PWV pilot runner that reuses the passed radar checkpoint and
+  compares zero versus real PWV with identical losses and sample identities.

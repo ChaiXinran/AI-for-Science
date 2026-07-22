@@ -36,3 +36,17 @@ active and inactive pixels. Apply the same losses to real- and zero-PWV heads.
 
 **Gate before PWV interpretation.** Do not interpret PWV deltas until the
 matched radar-only checkpoint has non-zero validation/test skill at 10 mm/h.
+
+## 2026-07-22 — Radar pilot passes the PWV-entry gate
+
+**Evidence.** On 512 uniformly spaced test windows, the 10-epoch/2048-window
+radar pilot achieved CSI 0.239 and 0.201 at 10 and 20 mm/h, versus persistence
+0.169 and 0.123. Overall MAE/RMSE were 0.163/1.096 versus persistence
+0.209/1.360. The best validation weighted-L1 occurred at epoch 7 (0.745).
+
+**Decision.** Use this checkpoint only as the frozen backbone for a matched
+2048-window PWV pilot. Do not promote it as the final full-data baseline.
+
+**Core-control correction.** Disable PWV shuffle loss for both zero-PWV and
+real-PWV in the primary comparison; otherwise PWV input would not be the only
+experimental difference. Shuffle remains a later robustness control.

@@ -95,7 +95,7 @@ for SEED in ${SEEDS}; do
     --device "${DEVICE}" --model_name PWVBirthGrowthNowcastNet \
     --input_length 9 --total_length 39 --img_height 96 --img_width 96 \
     --intensity_scale 35 --pwv_intensity_scale 80 --pwv_invert \
-    --pwv_tendency_windows 30,60 --pwv_tendency_mode slope \
+    --pwv_tendency_windows 30,60 --pwv_tendency_mode slope --lambda_shuffle 0 \
     --birth_low_threshold 2 --birth_high_threshold 10 --growth_delta 5 \
     --batch_size "${BATCH_SIZE}" --epochs "${EPOCHS}" --num_workers "${NUM_WORKERS}" \
     --seed "${SEED}" "${TRAIN_LIMIT_ARGS[@]}"

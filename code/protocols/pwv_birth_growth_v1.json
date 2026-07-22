@@ -47,7 +47,7 @@
     {
       "id": "pwv_birth_growth",
       "model_name": "PWVBirthGrowthNowcastNet",
-      "training": "initialize and freeze the matched radar-only backbone; train PWV branch"
+      "training": "initialize and freeze the matched radar-only backbone; train PWV branch; core comparison disables shuffle loss so PWV input is the only difference from zero-PWV"
     }
   ],
   "birth_growth_labels": {
