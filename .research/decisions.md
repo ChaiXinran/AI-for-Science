@@ -400,3 +400,16 @@ tile-leads per task in the locked 512-window development sample. Promotion
 requires at least three of four primary-stratum tasks to beat radar-only,
 short-interpolated PWV, spatial shift, and cross-event PWV by >=0.003 CSI with
 positive AP delta, while losing no more than 0.003 all-window CSI to radar-only.
+
+**Causal-preconditioning verdict:** Do not promote the current branch to an
+end-to-end adapter yet; its locked mechanism gate failed 0/4 tasks. Preserve
+the important secondary observation that all-window CSI improved over
+radar-only in three tasks with positive day-cluster intervals, including
++0.06652 at 0--1 h/20 mm/h and +0.03843 at 1--2 h/20 mm/h. However, aligned
+PWV did not consistently beat cross-event PWV, tendency reversal was nearly
+neutral, and primary-stratum AP declined in every task. The next action is one
+same-checkpoint attribution test, not another trained architecture: compare
+real causal PWV against fit-day static climatology, spatially constant
+event-level PWV, and anomaly-only PWV. This will determine whether the observed
+CSI gain comes from static geography, scalar moisture regime, or true spatial
+event anomalies.

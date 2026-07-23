@@ -23,6 +23,7 @@ from diagnostics.pwv_preconditioning_probe import (
     build_strata,
     causal_pwv_features,
 )
+from diagnostics.pwv_preconditioning_attribution import decompose_pwv_history
 from nowcasting.data_provider.custom_png import PngSequenceDataset
 
 
@@ -179,6 +180,41 @@ class ConditionalProbeSmokeTest(unittest.TestCase):
         masks = build_strata(cache, [10.0, 20.0])
         self.assertTrue(masks[PRIMARY_STRATUM].all())
         self.assertFalse(masks["radar_quiet"].any())
+
+    def test_pwv_attribution_decomposition_separates_components(self):
+        climatology = torch.tensor(
+            [[[[0.0, 20.0], [30.0, 40.0]]]]
+        )
+        scalar = torch.tensor([2.0, 5.0]).view(1, 2, 1, 1)
+        anomaly = torch.tensor(
+            [[[[0.0, -1.0], [0.0, 1.0]], [[0.0, 2.0], [0.0, -2.0]]]]
+        )
+        valid = (climatology > 0).float()
+        history = climatology + scalar * valid + anomaly
+        variants, _, diagnostics = decompose_pwv_history(
+            history, climatology, 80.0
+        )
+        self.assertTrue(
+            torch.allclose(variants["pwv_real"], history)
+        )
+        self.assertTrue(
+            torch.allclose(
+                variants["pwv_static_climatology"],
+                climatology.expand_as(history),
+            )
+        )
+        residual = (
+            variants["pwv_real"]
+            - variants["pwv_static_plus_event_scalar"]
+        ) * valid
+        self.assertTrue(
+            torch.allclose(
+                residual.sum(dim=(-2, -1)),
+                torch.zeros_like(residual.sum(dim=(-2, -1))),
+                atol=1e-5,
+            )
+        )
+        self.assertGreater(diagnostics["mean_abs_event_scalar_mm"], 0)
 
 
 if __name__ == "__main__":

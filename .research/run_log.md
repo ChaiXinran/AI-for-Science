@@ -307,3 +307,43 @@
   tile-leads in the primary weak-echo/nondecreasing stratum across the four
   horizon-threshold tasks, spanning 16--17 positive days. The primary stratum
   therefore has adequate support for the 2,048/512 server pilot.
+
+## 2026-07-23 - Server causal PWV preconditioning probe
+
+- Completed 2,048 training and 512 validation windows with 1,628 fit and 420
+  calibration samples. Radar, short-PWV, and causal-long-PWV probes each had
+  13,378 parameters over the same 35,035,965-parameter frozen radar model.
+- All-window causal-long minus radar-only CSI was +0.01011, +0.06652,
+  +0.00190, and +0.03843 for 0--1 h at 10/20 mm/h and 1--2 h at 10/20 mm/h.
+  Day-cluster 95% intervals excluded zero for both 0--1 h tasks and 1--2 h at
+  20 mm/h. Average precision improved only for 0--1 h at 20 mm/h.
+- The primary weak-echo/nondecreasing stratum failed the locked gate (0/4).
+  Although CSI exceeded radar-only in three tasks, AP was lower in all four.
+- Causal-long PWV did not consistently beat cross-event PWV. All-window CSI
+  deltas versus cross-event were +0.00167, -0.01045, +0.00389, and -0.00406;
+  the cross-event control was significantly better for 1--2 h at 20 mm/h.
+  Tendency reversal changed CSI by at most 0.00593.
+- Interpretation: the causal-long branch can improve a calibrated CSI operating
+  point relative to radar-only, but the gain cannot be attributed to
+  event-specific aligned PWV. Spatial shift sensitivity plus cross-event
+  insensitivity points to a stationary geographic/climatological template or
+  modality-branch regularization rather than dynamic moisture preconditioning.
+- The outer `tee` could race the runner's creation of `PROBE_ROOT`, so no
+  `run.log` was retained. The summary is complete; documentation now creates
+  `PROBE_ROOT` before starting the pipeline.
+
+## 2026-07-23 - Same-checkpoint PWV attribution implementation
+
+- Added an inference-only decomposition of the causal PWV history into fit-day
+  static climatology, a per-anchor valid-domain scalar moisture departure, and
+  a zero-spatial-mean event anomaly. Zero padding is excluded from all spatial
+  statistics.
+- Added five same-checkpoint interventions: real PWV, static climatology,
+  static plus event scalar, event scalar without geography, and event spatial
+  anomaly without geography or scalar regime. All reuse the trained long-PWV
+  checkpoint and its frozen calibration thresholds.
+- Added a reconstruction assertion requiring the attribution's real-PWV
+  features to exactly match the features used by the trained probe.
+- Seven focused unit tests and an inference-only real-cache smoke passed. The
+  local smoke reconstructed real features with maximum absolute error 0.0 and
+  emitted strict JSON plus paired day-cluster bootstrap results.

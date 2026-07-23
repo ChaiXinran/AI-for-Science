@@ -1,0 +1,29 @@
+{
+  "protocol_id": "pwv_preconditioning_same_checkpoint_attribution",
+  "status": "implemented_real_cache_smoke_passed_ready_for_server_inference",
+  "question": "Does the observed CSI gain come from static geography, an event-level scalar moisture regime, or event-specific spatial PWV anomalies?",
+  "training": "none",
+  "frozen_inputs": [
+    "preconditioning_feature_cache.pt",
+    "long_probe.ckpt",
+    "preconditioning_probe_summary.json calibration thresholds"
+  ],
+  "decomposition": {
+    "static_climatology": "fit-day spatial mean PWV field repeated through the seven-anchor history",
+    "event_scalar": "per-anchor valid-domain mean departure from fit-day climatology",
+    "event_spatial_anomaly": "residual after removing static climatology and event scalar, constrained to zero valid-domain spatial mean"
+  },
+  "same_checkpoint_variants": [
+    "real causal PWV",
+    "static climatology only",
+    "static climatology plus event scalar",
+    "event scalar only without static geography",
+    "event spatial anomaly only without static geography or scalar regime"
+  ],
+  "primary_test": {
+    "comparison": "real causal PWV minus static climatology plus event scalar",
+    "meaning": "incremental contribution of event-specific spatial anomalies",
+    "pass": "CSI delta at least 0.003 and positive average-precision delta in at least three of four all-window horizon-threshold tasks"
+  },
+  "note": "All variants use one trained checkpoint and one set of frozen probability thresholds."
+}

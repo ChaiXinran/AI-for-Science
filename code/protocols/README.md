@@ -179,5 +179,24 @@ export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/proto
 export RADAR_CHECKPOINT=/root/autodl-tmp/nowcastnet_runs/pwv_latent_state_fusion_pilot/seed_2026/checkpoints/radar_only/best_state_dict.ckpt
 export PROBE_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_causal_preconditioning_probe
 export DEVICE=cuda:0 BATCH_SIZE=8 PROBE_BATCH_SIZE=32 NUM_WORKERS=8 EPOCHS=20 SEED=2026
+mkdir -p "${PROBE_ROOT}"
 bash code/scripts/run_pwv_preconditioning_probe.sh 2>&1 | tee "${PROBE_ROOT}/run.log"
 ```
+
+### Same-checkpoint PWV attribution
+
+After the causal preconditioning probe finishes, this inference-only diagnostic
+decomposes PWV into static fit-day climatology, an event-level scalar moisture
+offset, and an event-specific spatial anomaly. It reuses the completed cache,
+the trained long-PWV probe, and its frozen calibration thresholds. No model is
+retrained.
+
+```bash
+export PRECONDITIONING_SEED_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_causal_preconditioning_probe/seed_2026
+mkdir -p "${PRECONDITIONING_SEED_ROOT}"
+bash code/scripts/run_pwv_preconditioning_attribution.sh \
+  2>&1 | tee "${PRECONDITIONING_SEED_ROOT}/attribution.log"
+```
+
+The result is
+`seed_2026/preconditioning_attribution_summary.json`.
