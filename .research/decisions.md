@@ -413,3 +413,14 @@ real causal PWV against fit-day static climatology, spatially constant
 event-level PWV, and anomaly-only PWV. This will determine whether the observed
 CSI gain comes from static geography, scalar moisture regime, or true spatial
 event anomalies.
+
+**Attribution verdict:** The same-checkpoint decomposition failed its
+event-spatial-anomaly gate (2/4). Static climatology reproduced roughly
+82--86% of the real-PWV CSI gains at the two 20 mm/h tasks. Real PWV beat static
+climatology plus event scalar by +0.01125 CSI at 0--1 h/20 and +0.00541 at
+1--2 h/10 with positive AP deltas, but both day-cluster intervals crossed zero;
+the other two CSI deltas were -0.00145 and +0.00063. Do not describe the
+current gain as dynamic-PWV skill. Any next trained comparison must give the
+radar control an explicit static coordinate/climatology map, otherwise the PWV
+branch receives an unfair location prior. A dynamic-PWV claim requires real
+anomalies to beat that strengthened control.

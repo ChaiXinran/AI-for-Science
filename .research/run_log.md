@@ -347,3 +347,38 @@
 - Seven focused unit tests and an inference-only real-cache smoke passed. The
   local smoke reconstructed real features with maximum absolute error 0.0 and
   emitted strict JSON plus paired day-cluster bootstrap results.
+
+## 2026-07-23 - Server same-checkpoint PWV attribution
+
+- Evaluated 512 validation windows through the same 13,378-parameter long-PWV
+  checkpoint and frozen thresholds. Real-feature reconstruction error was
+  exactly 0.0.
+- Static climatology alone produced all-window CSI 0.52919, 0.37890, 0.23053,
+  and 0.10808. Relative to the prior radar-only probe, this accounts for about
+  63%, 82%, and 86% of the real-PWV CSI gain in 0--1 h/10, 0--1 h/20, and
+  1--2 h/20, respectively. It did not explain the small 1--2 h/10 gain.
+- Real PWV minus static-climatology-plus-event-scalar CSI was -0.00145,
+  +0.01125, +0.00541, and +0.00063 across the four tasks. AP deltas were
+  -0.00522, +0.00565, +0.00202, and +0.00337. Only 2/4 point-estimate tasks
+  passed, and every day-cluster CSI interval included zero.
+- Adding the event scalar to static climatology did not produce a robust
+  improvement over static climatology. The spatial-anomaly gate failed 2/4.
+- Verdict: most apparent high-threshold CSI improvement is attributable to a
+  stationary geographic/climatological template available through PWV, not to
+  robust event-specific moisture information.
+
+## 2026-07-23 - Fair dynamic-residual control implementation
+
+- Added the final matched trained comparison. Both probes receive one identical
+  fit-day static PWV climatology channel. The dynamic probe alone additionally
+  receives latest/mean/scalar-tendency moisture departures and latest/tendency
+  zero-spatial-mean event anomalies.
+- Static and dynamic probes instantiate the same architecture and initial
+  weights and use the same fit/calibration days, class weights, optimizer, and
+  epoch budget.
+- Added same-checkpoint cross-event, anomaly-only spatial shift,
+  tendency-reversal, and static-only interventions. The static climatology is
+  never shifted or replaced in these controls.
+- Eight focused tests and a 4-train/2-validation real-cache end-to-end smoke
+  passed. The smoke emitted matched checkpoints, independent calibration,
+  stratified metrics, and paired bootstrap comparisons.

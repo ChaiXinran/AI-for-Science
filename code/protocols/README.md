@@ -200,3 +200,21 @@ bash code/scripts/run_pwv_preconditioning_attribution.sh \
 
 The result is
 `seed_2026/preconditioning_attribution_summary.json`.
+
+### Fair static-climatology versus dynamic-PWV control
+
+This is the final trained attribution gate. Both probes receive the identical
+fit-day static PWV climatology channel. Only the dynamic probe receives the
+event scalar moisture state and zero-mean spatial residuals. Both probes use
+the same architecture, initialization seed, fit/calibration days, and
+optimization budget.
+
+```bash
+export PRECONDITIONING_SEED_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_causal_preconditioning_probe/seed_2026
+mkdir -p "${PRECONDITIONING_SEED_ROOT}/fair_dynamic_residual_control"
+bash code/scripts/run_pwv_fair_dynamic_control.sh \
+  2>&1 | tee "${PRECONDITIONING_SEED_ROOT}/fair_dynamic_residual_control/run.log"
+```
+
+The result is
+`seed_2026/fair_dynamic_residual_control/fair_dynamic_residual_summary.json`.

@@ -24,6 +24,9 @@ from diagnostics.pwv_preconditioning_probe import (
     causal_pwv_features,
 )
 from diagnostics.pwv_preconditioning_attribution import decompose_pwv_history
+from diagnostics.pwv_dynamic_residual_control import (
+    fair_static_dynamic_features,
+)
 from nowcasting.data_provider.custom_png import PngSequenceDataset
 
 
@@ -215,6 +218,26 @@ class ConditionalProbeSmokeTest(unittest.TestCase):
             )
         )
         self.assertGreater(diagnostics["mean_abs_event_scalar_mm"], 0)
+
+    def test_fair_dynamic_features_share_exact_static_channel(self):
+        climatology = torch.tensor(
+            [[[[0.0, 20.0], [30.0, 40.0]]]]
+        )
+        history = climatology.expand(2, 7, 2, 2).clone()
+        history[0, -1, 1, 1] += 6
+        history[1, :, 0, 1] += torch.linspace(0, 6, 7)
+        static, dynamic, diagnostics = fair_static_dynamic_features(
+            history, climatology, 80.0
+        )
+        self.assertEqual(tuple(static.shape), (2, 6, 2, 2))
+        self.assertTrue(torch.equal(static[:, 0], dynamic[:, 0]))
+        self.assertEqual(int(torch.count_nonzero(static[:, 1:])), 0)
+        self.assertGreater(
+            float(dynamic[:, 1:].abs().sum()), 0.0
+        )
+        self.assertGreaterEqual(
+            diagnostics["mean_spatial_anomaly_std_mm"], 0.0
+        )
 
 
 if __name__ == "__main__":

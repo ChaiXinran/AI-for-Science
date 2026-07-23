@@ -1,0 +1,34 @@
+{
+  "protocol_id": "pwv_fair_dynamic_residual_control",
+  "status": "implemented_real_cache_smoke_passed_ready_for_server_pilot",
+  "question": "Does event-specific dynamic PWV improve CSI after radar and the static PWV geographic prior are held equal?",
+  "shared_input": {
+    "radar": "same frozen radar latent cache",
+    "static_channel": "same fit-day PWV climatology map",
+    "architecture": "identical ConditionalEventProbe",
+    "initialization": "same seed and initial weights",
+    "optimization": "same fit days, epochs, learning rate, weight decay, positive weights, and calibration-day protocol"
+  },
+  "dynamic_only_channels": [
+    "latest event-level scalar PWV departure",
+    "three-hour mean event-level scalar PWV departure",
+    "three-hour scalar tendency",
+    "latest zero-spatial-mean event PWV anomaly",
+    "three-hour spatial-anomaly tendency"
+  ],
+  "trained_variants": [
+    "radar plus static climatology",
+    "radar plus the same static climatology and dynamic PWV residuals"
+  ],
+  "same_checkpoint_controls": [
+    "cross-event dynamic residuals",
+    "spatially shifted anomaly channels with static climatology unchanged",
+    "reversed scalar and anomaly tendencies",
+    "static-only input through the trained dynamic checkpoint"
+  ],
+  "promotion_rule": {
+    "minimum_absolute_csi_delta": 0.003,
+    "required": "aligned dynamic PWV must improve all-window CSI by at least 0.003 and average precision by more than zero over the separately trained static control and the cross-event, anomaly-shift, and same-checkpoint-static controls in at least three of four tasks",
+    "safety": "no task may lose more than 0.003 CSI against the separately trained static-climatology control"
+  }
+}
