@@ -70,3 +70,33 @@ Birth/Growth checkpoint/result directories. Every checkpoint folder
 contains `data_manifest.json`; every result folder contains an independent test
 manifest. The final `protocol_summary.json` is generated only when sample hashes
 match exactly.
+
+## Signed PWV calibrator successor
+
+The positive-only `contrastive_trigger` branch is archived as a no-go. Its
+successor is goal-named rather than version-numbered:
+
+- protocol: `code/protocols/pwv_signed_calibrator_pilot.json`
+- runner: `code/scripts/run_signed_calibrator_pilot.sh`
+- model: `PWVSignedCalibratorNowcastNet`
+
+The runner does not retrain the radar backbone. It requires the matched 0--2 h
+radar checkpoint, runs the train-only PWV climatology/support audit once, then
+trains static, spatial-control, and temporal-tendency heads under the same
+2048/512 budget. It evaluates null, level-only, reverse, and shift controls
+from the static checkpoint and produces paired day-cluster bootstrap deltas.
+
+Server example:
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export RADAR_CKPT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_radar_gate/checkpoints/radar/best_state_dict.ckpt
+export PILOT_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_signed_calibrator_pilot
+export DEVICE=cuda:0 BATCH_SIZE=8 NUM_WORKERS=8 EPOCHS=10 SEED=2026
+bash code/scripts/run_signed_calibrator_pilot.sh 2>&1 | tee "${PILOT_ROOT}/run.log"
+```
+
+The one-seed run can only promote the design to three-seed replication. It
+must not be presented as final test evidence.

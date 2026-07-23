@@ -3,6 +3,7 @@ from nowcasting.models.nowcastnet_pwv import (
     PWVBirthGrowthNet,
     PWVContrastiveTriggerNet,
     PWVCoupledNet,
+    PWVSignedCalibratorNet,
 )
 from nowcasting.models.nowcastnet_pwv_object import PWVCoupledNetObject
 
@@ -13,6 +14,7 @@ MODEL_REGISTRY = {
     "PWVCoupledNowcastNet": PWVCoupledNet,
     "PWVBirthGrowthNowcastNet": PWVBirthGrowthNet,
     "PWVContrastiveTriggerNowcastNet": PWVContrastiveTriggerNet,
+    "PWVSignedCalibratorNowcastNet": PWVSignedCalibratorNet,
     "PWVCoupledNowcastNetObject": PWVCoupledNetObject,
 }
 

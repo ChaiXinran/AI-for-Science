@@ -131,3 +131,52 @@
   plus a checkpoint-only three-seed runner and report deltas for both controls.
 - Local validation passed: seven model/control tests, Python compilation,
   strict protocol JSON parsing, Bash syntax, and a synthetic multi-seed report.
+
+## 2026-07-23 - Checkpoint-only diagnostics completed
+
+- Completed corrected temporal reversal, observed-period `level_only`, and
+  half-domain spatial displacement for seeds 2026--2028 on identical 512-window
+  samples.
+- Real-minus-level-only CSI was effectively zero (+0.000012/+0.000045 at
+  10/20 mm/h), so nearly all final-field behavior survives removal of PWV time
+  evolution.
+- Spatial displacement roughly halved Birth/Growth PR-AUC, confirming use of
+  local spatial alignment, but real-minus-displaced final CSI remained only
+  +0.000257/+0.000430 and real MAE was worse.
+- Closed the contrastive-trigger mechanism without full-data scaling. Routed
+  any successor toward bounded signed calibration with explicit categorical
+  rain-threshold supervision and stronger geography/climatology controls.
+## 2026-07-23 - Signed PWV calibrator Stage 0 and implementation
+
+- Locked the reviewed chronological split locally: 83 train, 23 validation,
+  and 17 test day directories; split SHA256
+  `dfc9c425046c04d5f35712f331d7516f941b390d7a3fe7798ef2156ef13816ce`.
+- Completed strict Stage-0 audit over 29,511 radar frames and their paired PWV
+  frames. Missing pairs: 0. Rejected non-contiguous windows: 0.
+- Train-only PWV climatology uses a deterministic frame stride of 6 and has
+  audit SHA256
+  `d1d5c75952d25a0d69181427589c6981dc5d7ef9836ad88b6e547f0f94e0eb04`.
+- Independent 0--2 h positive events:
+  - train: 40 / 25 / 8 at 10 / 20 / 30 mm/h;
+  - validation: 18 / 16 / 14;
+  - test: 13 / 9 / 7.
+  Therefore 10 and 20 mm/h are primary; 30 mm/h is diagnostic only.
+- PWV level has positive sample-level association with future heavy-rain
+  support, while observed first-to-last slope is negative in train and
+  validation. Static/anomaly PWV is the primary model; tendency is a secondary
+  ablation.
+- Implemented `PWVSignedCalibratorNowcastNet`: frozen radar backbone, train-only
+  spatial climatology, learned radar gate, exact real-minus-null condition,
+  candidate support, and bounded signed source correction.
+- Added threshold-balanced 10/20 mm/h trainer, matched spatial-control and
+  tendency variants, checkpoint controls, eventwise records, paired day-cluster
+  bootstrap report, frozen protocol, and server runner.
+- Verification:
+  - existing + new unit suite: 9 tests passed;
+  - tensor-level null PWV radar identity passed;
+  - bounded signed contribution and frozen-backbone gradient tests passed;
+  - synthetic end-to-end train/test CLI smoke passed on CPU
+    (`SIGNED_CLI_SMOKE_OK`).
+- Local NVIDIA hardware is visible, but the `nowcast` environment contains
+  CPU-only PyTorch 2.13.0. No environment mutation was made; the scientific
+  pilot is assigned to the server GPU.

@@ -1,6 +1,6 @@
 {
   "protocol_id": "pwv_contrastive_trigger_pilot",
-  "status": "active_development_pilot",
+  "status": "completed_no_go_after_diagnostics",
   "target": {
     "field": "RAIN_2025_S",
     "unit": "mm/h",

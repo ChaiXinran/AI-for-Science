@@ -1,6 +1,6 @@
 ---
 project: "NowcastNet with PWV Coupling"
-last_updated: "2026-07-22"
+last_updated: "2026-07-23"
 stage: design
 status: draft
 source: "topic_dossier.gaps.yml#G1"
@@ -65,6 +65,15 @@ Committed development controls are null PWV, observed-input-only temporal
 reversal, `level_only`, and fixed spatial displacement. PWV climatology and a
 station-distance mask remain candidates for the later full protocol.
 
+**Implemented engineering gate (not a substitute for the researcher-authored
+success-metric answer above)**:
+The one-seed development pilot requires an absolute CSI improvement of at least
+0.003 at both 10 and 20 mm/h versus null/radar identity and the train-time
+spatial control, FAR degradation no larger than 0.005, and relative MAE
+degradation no larger than 0.5%. Passing promotes only to three-seed,
+day-cluster-bootstrap replication. The 30 mm/h threshold is diagnostic because
+the Stage-0 audit found only eight positive training events.
+
 ## 5. Risk register
 
 | # | Risk | Early-warning signal | Mitigation |
@@ -77,8 +86,12 @@ station-distance mask remain candidates for the later full protocol.
 
 ## Notes
 
-The active executable protocol is
-`code/protocols/pwv_contrastive_trigger_pilot.json`. This brief remains draft
-because the researcher-authored causal mechanism and minimum CSI effect size
-have not yet been supplied. Null PWV and temporal reversal are committed pilot
-controls; broader spatial-shuffle and climatology controls remain unconfirmed.
+The retired executable protocol is
+`code/protocols/pwv_contrastive_trigger_pilot.json`. The active successor is
+`code/protocols/pwv_signed_calibrator_pilot.json`. Stage 0 found zero missing
+PWV pairs, zero rejected non-contiguous windows, and a strong train/validation
+class-distribution shift. It also found positive level/heavy-rain association
+but negative short-slope/heavy-rain association. This brief remains draft
+because the researcher-authored causal mechanism and final minimum-effect
+answer have not yet been supplied. The implemented gate above is a reversible
+engineering precommit for the pilot, not a fabricated researcher response.

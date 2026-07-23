@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -432,5 +433,185 @@ class PWVContrastiveTriggerNet(PWVBirthGrowthNet):
                 "radar_growth_trigger": radar_growth.unsqueeze(2),
                 "pwv_birth_evidence": birth_evidence.unsqueeze(2),
                 "pwv_growth_evidence": growth_evidence.unsqueeze(2),
+            },
+        }
+
+
+class PWVSignedCalibratorNet(PWVBirthGrowthNet):
+    """Bounded signed PWV correction conditioned on a radar-derived gate.
+
+    The radar backbone is an exact identity path.  PWV enters only through the
+    difference between real and null condition logits, so an all-zero PWV input
+    produces exactly zero contribution.  Unlike the retired birth/growth head,
+    the contribution may suppress or enhance the radar source.
+    """
+
+    def __init__(self, configs):
+        super(PWVSignedCalibratorNet, self).__init__(configs)
+        self.birth_growth_mode = False
+        pwv_base_c = int(getattr(configs, "pwv_base_channels", 24))
+        fusion_channels = int(getattr(configs, "fusion_channels", 32))
+        self.signed_residual_scale = float(
+            getattr(configs, "signed_residual_scale", 0.25)
+        )
+        self.signed_use_tendency = bool(
+            getattr(configs, "signed_use_tendency", False)
+        )
+        self.candidate_threshold = float(
+            getattr(configs, "pwv_candidate_threshold", 0.5)
+        )
+        self.candidate_radius = int(getattr(configs, "pwv_candidate_radius", 4))
+
+        del self.pwv_source_net
+        del self.source_coupling_net
+        del self.support_gate_net
+        self.radar_gate_net = LightweightUNet(
+            configs.input_length + fusion_channels,
+            self.pred_length,
+            base_channels=pwv_base_c,
+            final_bias=-1.5,
+        )
+        # Absolute level, train-climatology anomaly, spatial gradient, tendency.
+        self.signed_pwv_encoder = ConvBlock(4, fusion_channels)
+        self.signed_condition_net = LightweightUNet(
+            fusion_channels,
+            self.pred_length,
+            base_channels=pwv_base_c,
+        )
+        self.signed_amount_net = LightweightUNet(
+            fusion_channels,
+            self.pred_length,
+            base_channels=pwv_base_c,
+        )
+
+        mean, std = self._load_climatology(configs)
+        self.register_buffer("pwv_climatology_mean", mean, persistent=True)
+        self.register_buffer("pwv_climatology_std", std, persistent=True)
+
+    @staticmethod
+    def _fit_climatology_canvas(array, height, width, fill):
+        array = np.asarray(array, dtype=np.float32)
+        if array.shape == (height, width):
+            return array
+        if array.shape[0] <= height and array.shape[1] <= width:
+            canvas = np.full((height, width), fill, dtype=np.float32)
+            top = (height - array.shape[0]) // 2
+            left = (width - array.shape[1]) // 2
+            canvas[top : top + array.shape[0], left : left + array.shape[1]] = array
+            return canvas
+        tensor = torch.from_numpy(array).view(1, 1, *array.shape)
+        resized = F.interpolate(
+            tensor, size=(height, width), mode="bilinear", align_corners=False
+        )
+        return resized[0, 0].numpy()
+
+    def _load_climatology(self, configs):
+        height = int(configs.img_height)
+        width = int(configs.img_width)
+        path = str(getattr(configs, "pwv_climatology_path", "") or "")
+        if not path:
+            mean = np.zeros((height, width), dtype=np.float32)
+            std = np.ones((height, width), dtype=np.float32)
+        else:
+            payload = np.load(path)
+            mean = self._fit_climatology_canvas(
+                payload["mean"], height, width, 0.0
+            )
+            std = self._fit_climatology_canvas(
+                payload["std"], height, width, 1.0
+            )
+        mean_tensor = torch.from_numpy(mean).view(1, 1, height, width)
+        std_tensor = torch.from_numpy(np.maximum(std, 1e-3)).view(
+            1, 1, height, width
+        )
+        return mean_tensor, std_tensor
+
+    def _candidate_mask(self, radar_context):
+        threshold = self.candidate_threshold / max(self.intensity_scale, 1e-6)
+        recent_echo = radar_context.amax(dim=1, keepdim=True)
+        candidate = torch.clamp(recent_echo / max(threshold, 1e-6), 0.0, 1.0)
+        if self.candidate_radius > 0:
+            kernel = self.candidate_radius * 2 + 1
+            candidate = F.max_pool2d(
+                candidate,
+                kernel_size=kernel,
+                stride=1,
+                padding=self.candidate_radius,
+            )
+        return candidate.repeat(1, self.pred_length, 1, 1)
+
+    def _signed_features(self, pwv_input):
+        scale = max(
+            float(getattr(self.configs, "pwv_intensity_scale", 80.0)), 1e-6
+        )
+        observed_mean = pwv_input.mean(dim=1, keepdim=True)
+        absolute = observed_mean / scale
+        anomaly = (
+            observed_mean - self.pwv_climatology_mean
+        ) / self.pwv_climatology_std
+        dx = F.pad(
+            observed_mean[..., :, 1:] - observed_mean[..., :, :-1],
+            (0, 1, 0, 0),
+        )
+        dy = F.pad(
+            observed_mean[..., 1:, :] - observed_mean[..., :-1, :],
+            (0, 0, 0, 1),
+        )
+        gradient = torch.sqrt(dx * dx + dy * dy + 1e-6) / scale
+        if self.signed_use_tendency:
+            tendency = (pwv_input[:, -1:] - pwv_input[:, :1]) / scale
+        else:
+            tendency = torch.zeros_like(observed_mean)
+        return torch.clamp(
+            torch.cat([absolute, anomaly, gradient, tendency], dim=1),
+            -5.0,
+            5.0,
+        )
+
+    def _compute_pwv_source_components(
+        self,
+        radar_context,
+        pwv_input,
+        pwv_features,
+        source_pwv_features,
+        source_fused_feature,
+        gate_input,
+        fused_feature,
+        radar_feat,
+        pwv_feat,
+    ):
+        radar_gate = torch.sigmoid(
+            self.radar_gate_net(torch.cat([radar_context, radar_feat], dim=1))
+        )
+        real_features = self._signed_features(pwv_input)
+        null_features = self._signed_features(torch.zeros_like(pwv_input))
+        real_encoded = self.signed_pwv_encoder(real_features)
+        null_encoded = self.signed_pwv_encoder(null_features)
+        real_logits = self.signed_condition_net(real_encoded)
+        null_logits = self.signed_condition_net(null_encoded)
+        signed_condition = torch.tanh(real_logits - null_logits)
+        radar_amount = torch.tanh(self.signed_amount_net(radar_feat))
+        candidate = self._candidate_mask(radar_context)
+        contribution = (
+            candidate
+            * radar_gate
+            * signed_condition
+            * radar_amount
+            * self.signed_residual_scale
+        )
+        coupling = radar_gate * signed_condition.abs()
+        return {
+            "pwv_intensity": radar_amount * self.signed_residual_scale,
+            "source_coupling": coupling,
+            "support_gate": candidate,
+            "birth_probability": None,
+            "growth_probability": None,
+            "growth_amount": None,
+            "pwv_contribution": contribution,
+            "pwv_attention": None,
+            "extra_aux": {
+                "radar_calibration_gate": radar_gate.unsqueeze(2),
+                "signed_pwv_condition": signed_condition.unsqueeze(2),
+                "candidate_mask": candidate.unsqueeze(2),
             },
         }

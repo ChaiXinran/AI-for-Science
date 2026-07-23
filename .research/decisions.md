@@ -186,3 +186,90 @@ temporal-reverse metrics unless they declare `observed_input_only`. Re-run the
 corrected reverse control together with observed-mean `level_only` and fixed
 half-domain spatial displacement for all three existing checkpoints; no model
 training is required.
+
+## 2026-07-23 - Diagnostics identify static local moisture as the dominant path
+
+**Temporal result.** Real PWV was almost indistinguishable from `level_only`:
+mean real-minus-level CSI deltas were +0.000012 at 10 mm/h and +0.000045 at
+20 mm/h. Correct temporal order exceeded observed-input-only reversal by only
++0.000174/+0.000188, with uncertainty as large as or larger than the means.
+Thus the final-field effect is not supported as a temporal-evolution benefit.
+
+**Spatial result.** Spatial displacement reduced Birth PR-AUC from 0.00915 to
+0.00547 and Growth PR-AUC from 0.02943 to 0.01434, showing that the head uses
+local PWV/radar co-location. Real-minus-displaced CSI20 was positive in all
+three seeds but remained tiny (+0.000430 mean, 0.000420 standard deviation),
+while real PWV had worse MAE than the displaced control by 0.000542.
+
+**Mechanistic verdict.** The current head primarily implements a static,
+spatially aligned moisture-conditioned upward calibration. It does not establish
+that PWV temporal evolution improves 0--2 h precipitation nowcasting, and its
+small CSI trade is offset by false alarms and global error. Archive
+`contrastive_trigger` as a completed no-go mechanism.
+
+**Successor constraint.** If the PWV direction continues, the next pilot should
+be a bounded signed moisture calibrator: exact null identity, both suppression
+and enhancement, explicit 10/20 mm/h occurrence supervision, and a static-PWV
+climatology/geography control. Treat temporal tendency as a separately gated
+ablation rather than mixing it into the main path.
+
+## 2026-07-23 - Literature review supports PWV feasibility but narrows novelty
+
+**Positive feasibility evidence.** Direct prior art now includes Liu et al.
+(IEEE TGRS 2025, DOI 10.1109/TGRS.2025.3554745), which reports a 26% relative
+CSI gain at 30 mm/h from a Hong Kong radar/GNSS-PWV model; Lu et al. (IEEE TGRS
+2025, DOI 10.1109/TGRS.2025.3587883), which combines radar QPE, satellite SWD,
+and GNSS ZTD for 0--120 min nowcasting; and Sun et al. (Remote Sensing 2026,
+DOI 10.3390/rs18121929), which reports +1 h torrential-rain CSI 0.409 versus
+0.345 for its single-source model in Beijing--Tianjin--Hebei. A 2026 ZWD-Aurora
+preprint also reports larger benefits in the heavy tail. These results make it
+reasonable to continue the PWV direction.
+
+**Novelty consequence.** A generic claim that adding PWV to radar improves CSI
+is already occupied. Several reported gains bundle the data source with
+attention, DEM/time inputs, satellite inputs, or a different loss, and report
+point estimates or relative percentages without the controls needed to isolate
+PWV. The defensible gap is therefore mechanism and identifiability: demonstrate
+when spatially aligned PWV contains incremental event-held-out information over
+radar, climatology, station geometry, and matched false-alarm calibration.
+
+**Mechanism decision.** Make static/local PWV state (preferably a climatological
+anomaly plus an explicitly retained absolute level) the primary condition.
+Treat PWV temporal tendency as a secondary incremental ablation, because the
+current project found real PWV nearly indistinguishable from `level_only`.
+Require a radar-derived dynamic/uncertainty trigger. Do not return to a dense
+non-negative source term.
+
+**Next experiment class.** Before training, audit independent event counts,
+threshold support, station geometry, and a leakage-safe climatology. Then run a
+frozen-radar, small signed conditional calibration head with separate radar and
+PWV encoders, exact null identity, explicit 10/20 mm/h occurrence losses, and
+bounded support. Compare architecture-matched radar/null, real static/anomaly,
+event-wise shuffled or displaced PWV, and real-plus-tendency variants. Set the
+minimum meaningful effect after the support audit but before viewing model
+results. Do not start the full-data experiment until the small pilot and a
+three-seed/event-bootstrap replication pass.
+
+## 2026-07-23 - Stage 0 locks thresholds and the signed-calibrator pilot
+
+**Support audit.** The reviewed split contains 40/25/8 positive train events at
+10/20/30 mm/h over 0--2 h, 18/16/14 validation events, and 13/9/7 test events.
+All 29,511 radar frames have paired PWV frames and no candidate window failed
+the six-minute continuity check. Validation and test are much heavier-rain
+regimes than training, so window-level results must not be treated as
+independent evidence.
+
+**Feature verdict.** Deterministically sampled diagnostics show positive
+association between absolute PWV level and future heavy-rain support but
+negative association for the observed first-to-last PWV slope in both training
+and validation. This independently supports static level/anomaly as the primary
+condition and temporal tendency as a secondary ablation.
+
+**Locked pilot.** Use 10 and 20 mm/h as primary thresholds; keep 30 mm/h
+diagnostic. The successor is a frozen-radar bounded signed calibrator with
+train-only spatial PWV climatology, exact null identity, a radar gate, and a
+fixed candidate-support mask. Compare real static PWV against null and a
+train-time spatial displacement control. A one-seed pass requires at least
++0.003 absolute CSI at both primary thresholds, FAR degradation <=0.005, and
+relative MAE degradation <=0.5%; it promotes only to three-seed paired
+day-cluster-bootstrap replication.

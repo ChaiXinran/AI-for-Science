@@ -22,6 +22,7 @@ from test.radar import (
     average_neighborhood_score,
     build_intensity_bins,
     compute_target_quantile_thresholds,
+    event_metrics_for_arrays,
     finalize_event_metrics,
     finalize_fss_metrics,
     finalize_horizon_metrics,
@@ -54,6 +55,7 @@ from test.radar import (
     quantile_label,
     save_extreme_cases,
     save_sequence,
+    scalar_metrics_for_arrays,
     threshold_items_from_quantiles,
     summarize_cra_store,
     summarize_eventwise_store,
@@ -154,6 +156,9 @@ def build_parser():
     parser.add_argument("--birth_probability_threshold", type=float, default=0.5)
     parser.add_argument("--pwv_candidate_threshold", type=float, default=0.5)
     parser.add_argument("--pwv_candidate_radius", type=int, default=2)
+    parser.add_argument("--pwv_climatology_path", type=str, default="")
+    parser.add_argument("--signed_use_tendency", action="store_true")
+    parser.add_argument("--signed_residual_scale", type=float, default=0.25)
     parser.add_argument("--deterministic_noise", action="store_true")
     return parser
 
@@ -238,6 +243,7 @@ def main():
     attention_count = 0
     saved = 0
     birth_growth_metrics = None
+    eventwise_records = []
     if args.model_name in ("PWVBirthGrowthNowcastNet", "PWVContrastiveTriggerNowcastNet"):
         birth_growth_metrics = BirthGrowthAccumulator(args.birth_probability_threshold)
 
@@ -288,6 +294,23 @@ def main():
             update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
             update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
             update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+            for sample_index in range(pred.shape[0]):
+                sample_id = batch.get("sample_id", [""] * pred.shape[0])[sample_index]
+                case_name = batch.get("case_name", [""] * pred.shape[0])[sample_index]
+                start_file = batch.get("start_file", [""] * pred.shape[0])[sample_index]
+                eventwise_records.append(
+                    {
+                        "sample_id": str(sample_id),
+                        "case_name": str(case_name),
+                        "start_file": str(start_file),
+                        "model_scalar": scalar_metrics_for_arrays(
+                            pred[sample_index], target[sample_index]
+                        ),
+                        "model_events": event_metrics_for_arrays(
+                            pred[sample_index], target[sample_index], thresholds
+                        ),
+                    }
+                )
             coupling_sum += coupling.sum().item()
             coupling_sq_sum += (coupling * coupling).sum().item()
             coupling_count += coupling.numel()
@@ -475,6 +498,13 @@ def main():
     metrics = sanitize_json_numbers(metrics)
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, allow_nan=False)
+    with open(output_dir / "eventwise_records.json", "w", encoding="utf-8") as f:
+        json.dump(
+            sanitize_json_numbers(eventwise_records),
+            f,
+            indent=2,
+            allow_nan=False,
+        )
     print(json.dumps(metrics, indent=2, allow_nan=False), flush=True)
 
 

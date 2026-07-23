@@ -1,0 +1,331 @@
+{
+  "audit_sha256": "d1d5c75952d25a0d69181427589c6981dc5d7ef9836ad88b6e547f0f94e0eb04",
+  "split_sha256": "dfc9c425046c04d5f35712f331d7516f941b390d7a3fe7798ef2156ef13816ce",
+  "climatology": {
+    "source_split": "train only",
+    "paired_frames": 3320,
+    "deterministic_frame_stride": 6,
+    "shape": [
+      66,
+      70
+    ],
+    "mean_mm": 25.768932342529297,
+    "spatial_std_of_mean_mm": 6.155397891998291,
+    "mean_temporal_std_mm": 12.784287452697754,
+    "artifact": "pwv_train_climatology.npz"
+  },
+  "station_geometry": {
+    "available": false,
+    "reason": "Only gridded PWV PNGs are present; station locations/coverage masks are not in the dataset.",
+    "required_for_full_protocol": true
+  },
+  "split_isolation": {
+    "overlap": {
+      "train_val": [],
+      "train_test": [],
+      "val_test": []
+    },
+    "boundaries": [
+      {
+        "left_split": "train",
+        "right_split": "val",
+        "left_last": "202507/20250722",
+        "right_first": "202507/20250723",
+        "gap_days": 1,
+        "manual_storm_review_required": true
+      },
+      {
+        "left_split": "val",
+        "right_split": "test",
+        "left_last": "202508/20250814",
+        "right_first": "202508/20250815",
+        "gap_days": 1,
+        "manual_storm_review_required": true
+      }
+    ],
+    "has_directory_overlap": false
+  },
+  "support": {
+    "train": {
+      "10": {
+        "0-1": {
+          "positive_windows": 2833,
+          "positive_target_pixels_across_windows": 891550,
+          "positive_events": 40,
+          "total_windows": 17596,
+          "positive_window_rate": 0.16100250056831097,
+          "total_events": 83,
+          "positive_event_rate": 0.4819277108433735
+        },
+        "1-2": {
+          "positive_windows": 2824,
+          "positive_target_pixels_across_windows": 911893,
+          "positive_events": 40,
+          "total_windows": 17596,
+          "positive_window_rate": 0.16049102068651966,
+          "total_events": 83,
+          "positive_event_rate": 0.4819277108433735
+        },
+        "0-2": {
+          "positive_windows": 3470,
+          "positive_target_pixels_across_windows": 1803443,
+          "positive_events": 40,
+          "total_windows": 17596,
+          "positive_window_rate": 0.1972039099795408,
+          "total_events": 83,
+          "positive_event_rate": 0.4819277108433735
+        }
+      },
+      "20": {
+        "0-1": {
+          "positive_windows": 635,
+          "positive_target_pixels_across_windows": 108086,
+          "positive_events": 24,
+          "total_windows": 17596,
+          "positive_window_rate": 0.036087747215276196,
+          "total_events": 83,
+          "positive_event_rate": 0.2891566265060241
+        },
+        "1-2": {
+          "positive_windows": 662,
+          "positive_target_pixels_across_windows": 124614,
+          "positive_events": 25,
+          "total_windows": 17596,
+          "positive_window_rate": 0.03762218686065015,
+          "total_events": 83,
+          "positive_event_rate": 0.30120481927710846
+        },
+        "0-2": {
+          "positive_windows": 950,
+          "positive_target_pixels_across_windows": 232700,
+          "positive_events": 25,
+          "total_windows": 17596,
+          "positive_window_rate": 0.05398954307797227,
+          "total_events": 83,
+          "positive_event_rate": 0.30120481927710846
+        }
+      },
+      "30": {
+        "0-1": {
+          "positive_windows": 146,
+          "positive_target_pixels_across_windows": 10400,
+          "positive_events": 7,
+          "total_windows": 17596,
+          "positive_window_rate": 0.008297340304614684,
+          "total_events": 83,
+          "positive_event_rate": 0.08433734939759036
+        },
+        "1-2": {
+          "positive_windows": 145,
+          "positive_target_pixels_across_windows": 10335,
+          "positive_events": 8,
+          "total_windows": 17596,
+          "positive_window_rate": 0.008240509206637872,
+          "total_events": 83,
+          "positive_event_rate": 0.0963855421686747
+        },
+        "0-2": {
+          "positive_windows": 237,
+          "positive_target_pixels_across_windows": 20735,
+          "positive_events": 8,
+          "total_windows": 17596,
+          "positive_window_rate": 0.01346897022050466,
+          "total_events": 83,
+          "positive_event_rate": 0.0963855421686747
+        }
+      }
+    },
+    "val": {
+      "10": {
+        "0-1": {
+          "positive_windows": 2080,
+          "positive_target_pixels_across_windows": 1362907,
+          "positive_events": 17,
+          "total_windows": 4876,
+          "positive_window_rate": 0.4265791632485644,
+          "total_events": 23,
+          "positive_event_rate": 0.7391304347826086
+        },
+        "1-2": {
+          "positive_windows": 2087,
+          "positive_target_pixels_across_windows": 1372445,
+          "positive_events": 18,
+          "total_windows": 4876,
+          "positive_window_rate": 0.42801476620180473,
+          "total_events": 23,
+          "positive_event_rate": 0.782608695652174
+        },
+        "0-2": {
+          "positive_windows": 2378,
+          "positive_target_pixels_across_windows": 2735352,
+          "positive_events": 18,
+          "total_windows": 4876,
+          "positive_window_rate": 0.48769483182936835,
+          "total_events": 23,
+          "positive_event_rate": 0.782608695652174
+        }
+      },
+      "20": {
+        "0-1": {
+          "positive_windows": 1063,
+          "positive_target_pixels_across_windows": 278148,
+          "positive_events": 16,
+          "total_windows": 4876,
+          "positive_window_rate": 0.21800656275635766,
+          "total_events": 23,
+          "positive_event_rate": 0.6956521739130435
+        },
+        "1-2": {
+          "positive_windows": 1066,
+          "positive_target_pixels_across_windows": 281258,
+          "positive_events": 16,
+          "total_windows": 4876,
+          "positive_window_rate": 0.21862182116488926,
+          "total_events": 23,
+          "positive_event_rate": 0.6956521739130435
+        },
+        "0-2": {
+          "positive_windows": 1331,
+          "positive_target_pixels_across_windows": 559406,
+          "positive_events": 16,
+          "total_windows": 4876,
+          "positive_window_rate": 0.27296964725184575,
+          "total_events": 23,
+          "positive_event_rate": 0.6956521739130435
+        }
+      },
+      "30": {
+        "0-1": {
+          "positive_windows": 460,
+          "positive_target_pixels_across_windows": 59610,
+          "positive_events": 14,
+          "total_windows": 4876,
+          "positive_window_rate": 0.09433962264150944,
+          "total_events": 23,
+          "positive_event_rate": 0.6086956521739131
+        },
+        "1-2": {
+          "positive_windows": 474,
+          "positive_target_pixels_across_windows": 60320,
+          "positive_events": 14,
+          "total_windows": 4876,
+          "positive_window_rate": 0.09721082854799015,
+          "total_events": 23,
+          "positive_event_rate": 0.6086956521739131
+        },
+        "0-2": {
+          "positive_windows": 676,
+          "positive_target_pixels_across_windows": 119930,
+          "positive_events": 14,
+          "total_windows": 4876,
+          "positive_window_rate": 0.13863822805578344,
+          "total_events": 23,
+          "positive_event_rate": 0.6086956521739131
+        }
+      }
+    },
+    "test": {
+      "10": {
+        "0-1": {
+          "positive_windows": 1307,
+          "positive_target_pixels_across_windows": 1268669,
+          "positive_events": 12,
+          "total_windows": 3595,
+          "positive_window_rate": 0.3635605006954103,
+          "total_events": 17,
+          "positive_event_rate": 0.7058823529411765
+        },
+        "1-2": {
+          "positive_windows": 1326,
+          "positive_target_pixels_across_windows": 1327737,
+          "positive_events": 13,
+          "total_windows": 3595,
+          "positive_window_rate": 0.36884561891515993,
+          "total_events": 17,
+          "positive_event_rate": 0.7647058823529411
+        },
+        "0-2": {
+          "positive_windows": 1520,
+          "positive_target_pixels_across_windows": 2596406,
+          "positive_events": 13,
+          "total_windows": 3595,
+          "positive_window_rate": 0.4228094575799722,
+          "total_events": 17,
+          "positive_event_rate": 0.7647058823529411
+        }
+      },
+      "20": {
+        "0-1": {
+          "positive_windows": 599,
+          "positive_target_pixels_across_windows": 288772,
+          "positive_events": 9,
+          "total_windows": 3595,
+          "positive_window_rate": 0.16662030598052852,
+          "total_events": 17,
+          "positive_event_rate": 0.5294117647058824
+        },
+        "1-2": {
+          "positive_windows": 610,
+          "positive_target_pixels_across_windows": 320800,
+          "positive_events": 9,
+          "total_windows": 3595,
+          "positive_window_rate": 0.16968011126564672,
+          "total_events": 17,
+          "positive_event_rate": 0.5294117647058824
+        },
+        "0-2": {
+          "positive_windows": 781,
+          "positive_target_pixels_across_windows": 609572,
+          "positive_events": 9,
+          "total_windows": 3595,
+          "positive_window_rate": 0.2172461752433936,
+          "total_events": 17,
+          "positive_event_rate": 0.5294117647058824
+        }
+      },
+      "30": {
+        "0-1": {
+          "positive_windows": 269,
+          "positive_target_pixels_across_windows": 108204,
+          "positive_events": 7,
+          "total_windows": 3595,
+          "positive_window_rate": 0.07482614742698192,
+          "total_events": 17,
+          "positive_event_rate": 0.4117647058823529
+        },
+        "1-2": {
+          "positive_windows": 279,
+          "positive_target_pixels_across_windows": 124139,
+          "positive_events": 7,
+          "total_windows": 3595,
+          "positive_window_rate": 0.0776077885952712,
+          "total_events": 17,
+          "positive_event_rate": 0.4117647058823529
+        },
+        "0-2": {
+          "positive_windows": 405,
+          "positive_target_pixels_across_windows": 232343,
+          "positive_events": 7,
+          "total_windows": 3595,
+          "positive_window_rate": 0.11265646731571627,
+          "total_events": 17,
+          "positive_event_rate": 0.4117647058823529
+        }
+      }
+    }
+  },
+  "pwv_cadence": {
+    "train": {
+      "exact_repeat_rate": 0.0,
+      "mean_abs_change_mm_per_frame": 0.11555397690621665
+    },
+    "val": {
+      "exact_repeat_rate": 0.0,
+      "mean_abs_change_mm_per_frame": 0.13307352187246949
+    },
+    "test": {
+      "exact_repeat_rate": 0.0,
+      "mean_abs_change_mm_per_frame": 0.13055551554277248
+    }
+  }
+}

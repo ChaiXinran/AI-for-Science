@@ -1,0 +1,71 @@
+{
+  "protocol_id": "pwv_signed_calibrator_pilot",
+  "status": "implemented_local_smoke_passed_ready_for_server_pilot",
+  "scientific_hypothesis": "Spatially aligned PWV state improves 0-2 h heavy-rain occurrence skill only where the frozen radar forecast indicates dynamically plausible support; temporal tendency is a secondary incremental ablation.",
+  "target": {
+    "field": "RAIN_2025_S",
+    "unit": "mm/h",
+    "intensity_scale": 35.0,
+    "primary_thresholds_mm_h": [10.0, 20.0],
+    "diagnostic_thresholds_mm_h": [0.5, 2.0, 5.0, 30.0],
+    "reason_30_is_not_primary": "Stage-0 audit found only 8 positive train events at 30 mm/h over 0-2 h."
+  },
+  "sequence": {
+    "frame_minutes": 6,
+    "input_frames": 9,
+    "forecast_frames": 20,
+    "forecast_horizon": "0-2h"
+  },
+  "stage0": {
+    "split_sha256": "dfc9c425046c04d5f35712f331d7516f941b390d7a3fe7798ef2156ef13816ce",
+    "audit_sha256": "d1d5c75952d25a0d69181427589c6981dc5d7ef9836ad88b6e547f0f94e0eb04",
+    "pairing": "strict; zero missing pairs in train/val/test",
+    "contiguity": "zero rejected windows",
+    "train_only_climatology": "deterministic every-sixth-frame spatial mean/std",
+    "main_finding": "Absolute PWV level is positively associated with future heavy-rain support; short observed PWV slope is negatively associated in train and validation.",
+    "unavailable_control": "GNSS station-distance/coverage mask is unavailable because only gridded PWV PNGs are present."
+  },
+  "model": {
+    "name": "PWVSignedCalibratorNowcastNet",
+    "radar_backbone": "matched NowcastNet checkpoint, frozen",
+    "pwv_features": [
+      "observed-period absolute mean level",
+      "train-only spatial-climatology standardized anomaly",
+      "spatial gradient",
+      "optional first-to-last observed tendency"
+    ],
+    "interaction": "candidate support AND learned radar gate AND signed real-minus-null PWV condition",
+    "output": "bounded signed radar-source correction",
+    "signed_source_bound_per_step_mm_h": 0.25,
+    "identity_constraint": "all-zero PWV produces exactly zero contribution and tensor-level radar identity"
+  },
+  "train_time_variants": [
+    "static_real",
+    "spatial_control: same head trained and evaluated with fixed half-domain PWV displacement",
+    "tendency_real: static features plus observed first-to-last tendency"
+  ],
+  "checkpoint_controls": [
+    "static_null",
+    "static_level",
+    "static_reverse",
+    "static_shift"
+  ],
+  "development_budget": {
+    "train_windows": 2048,
+    "validation_windows": 512,
+    "initial_seeds": [2026],
+    "epochs_max": 10,
+    "early_stop_patience": 3,
+    "checkpoint_selection": "validation threshold-balanced loss plus preservation/FAR terms"
+  },
+  "promotion_gate": {
+    "minimum_absolute_csi_delta_at_each_primary_threshold": 0.003,
+    "comparisons": ["static_null", "spatial_control"],
+    "maximum_far_delta_vs_null": 0.005,
+    "maximum_relative_mae_increase_vs_null": 0.005,
+    "one_seed_role": "point-estimate pass promotes only to replication",
+    "replication_requirement": "three seeds plus positive lower bound of paired day-cluster bootstrap CSI delta",
+    "tendency_requirement": "must improve over static_real; otherwise it remains a negative ablation"
+  },
+  "full_data_gate": "Do not run a locked-test/full-data paper experiment until the one-seed pilot and three-seed replication both pass."
+}
