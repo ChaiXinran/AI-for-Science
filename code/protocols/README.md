@@ -101,3 +101,30 @@ bash code/scripts/run_signed_calibrator_pilot.sh 2>&1 | tee "${PILOT_ROOT}/run.l
 
 The one-seed run can only promote the design to three-seed replication. It
 must not be presented as final test evidence.
+
+## PWV latent-state fusion successor
+
+The signed recursive-source pilot failed its CSI/FAR/MAE gate. The successor
+therefore treats PWV as an encoded atmospheric state and fuses it once at the
+generative bottleneck. PWV never enters the recursive source or motion
+equations, and `Zero-PWV` is not used as a separate experiment.
+
+- protocol: `code/protocols/pwv_latent_state_fusion_pilot.json`
+- runner: `code/scripts/run_latent_state_fusion_pilot.sh`
+- model: `PWVLatentFusionNowcastNet`
+- variants: continued radar-only, aligned PWV, and independently/randomly
+  displaced PWV during training (deterministic half-domain shift at evaluation)
+
+The three variants start from the same matched 0--2 h radar checkpoint and
+receive the same additional epoch budget. The radar path is fine-tuned at
+one-tenth the learning rate used by the new PWV encoder and fusion modules.
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export RADAR_INIT_CKPT=/root/autodl-tmp/nowcastnet_runs/pwv_signed_calibrator_pilot/seed_2026/checkpoints/radar/best_state_dict.ckpt
+export PILOT_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_latent_state_fusion_pilot
+export DEVICE=cuda:0 BATCH_SIZE=8 NUM_WORKERS=8 EPOCHS=10 SEED=2026
+bash code/scripts/run_latent_state_fusion_pilot.sh 2>&1 | tee "${PILOT_ROOT}/run.log"
+```

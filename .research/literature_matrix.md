@@ -84,3 +84,34 @@ are not treated as absolute CSI-point gains.
    horizon-wise CSI/POD/FAR/bias at 10 and 20 mm/h (30 mm/h only if enough
    positives), FSS/object diagnostics, reliability/Brier score for the trigger,
    multi-seed paired deltas, and event-bootstrap confidence intervals.
+
+## Post-pilot correction: fusion location and control design
+
+The signed-source pilot falsified the proposed recursive source-calibration
+mechanism. Real PWV increased 10 mm/h FAR by 0.146, reduced CSI by 0.031, and
+increased MAE by 71% relative to the identity radar forecast. This requires an
+architecture-level correction, not hyperparameter tuning.
+
+| Work | Where the auxiliary modality enters | How it is trained | Appropriate no-auxiliary comparison | Reusable lesson |
+|---|---|---|---|---|
+| Liu et al., TGRS 2025, radar + GNSS-PWV | Multi-source fusion with time-dimension attention | End-to-end precipitation forecasting | Radar-only model | Direct prior art supports learned latent fusion, but the available abstract does not justify a recursive PWV rain source |
+| Sun et al., Remote Sensing 2026, STEA-Swin | PWV temporal representation and radar spatial representation interact through Swin/spatio-temporal attention; DEM/time encoding and an edge-aware composite loss are also included | End-to-end multimodal U-Net | Single-source radar model | Their reported gain is a bundled fusion package; reproduce the basic two-stream latent-fusion idea under stricter matched controls |
+| Trentini et al., 2026, ZWD + Aurora | ZWD is added as a new surface state variable through the variable-specific linear encoder/decoder and is also an auxiliary prediction target | Two-step fine-tuning; matched With-ZWD and Without-ZWD models start from the same pretrained checkpoint and share schedule/data/budget | Separately trained Without-ZWD model, not a zeroed ZWD inference | Treat water vapour as a state representation and auxiliary task; compare independently trained matched models |
+| Yu et al., AAAI 2025, radar + satellite | Separate encoder-decoder branches, latent cross-attention, and lead-dependent Temp-AdaLN; a later flow adaptor refines the distribution | Joint recurrent multimodal prediction, then distribution adaptation | Full model versus model trained without multimodality | Fuse encoded modalities and make their influence lead-dependent rather than adding a dense physical source |
+| Yu et al., ACM MM 2025, PiMMNet | Multimodal inputs estimate a shared velocity field; deterministic advection is separated from stochastic residual generation | Jointly optimized motion estimator and residual diffusion model | Matched pipeline/input-condition ablations | Auxiliary observations can inform dynamics or residual uncertainty without being interpreted as a direct positive precipitation source |
+
+### Corrected control decision
+
+- Drop `Zero-PWV` as a separately named scientific experiment. Under the
+  current exact-identity construction it is only a duplicate of the frozen
+  radar forecast, while zeroing a modality at inference can also be an
+  out-of-distribution intervention.
+- Keep one radar-only baseline, trained under the same 0-2 h split and budget.
+- Compare it with a separately trained radar+PWV model initialized from the
+  same radar checkpoint.
+- Use train-time event-wise PWV permutation or fixed spatial displacement as
+  the negative control for whether real PWV content/alignment is informative.
+- Do not inject a per-step PWV source into the recursive evolution. The next
+  candidate should use two-stream latent fusion and, if a residual is retained,
+  apply a single bounded correction to the final forecast rather than allowing
+  twenty-step accumulation.

@@ -1,0 +1,469 @@
+{
+  "protocol": "pwv_latent_state_fusion_pilot",
+  "seed_root": ".research\\pwv_latent_state_fusion\\real_smoke_anchored",
+  "thresholds": [
+    10.0,
+    20.0
+  ],
+  "variants": {
+    "radar_only": {
+      "samples": 1,
+      "sample_sha256": "b6a68bf01339077cc4bc71743ed30d6763de375208991728757d47701849bce4",
+      "mae": 0.38171039157443576,
+      "rmse": 0.9023667663310372,
+      "bias": -0.19873727162679036,
+      "event_metrics": {
+        "10": {
+          "threshold": 10.0,
+          "hit": 0,
+          "miss": 61,
+          "false_alarm": 0,
+          "correct_negative": 184259,
+          "csi": 0.0,
+          "pod": 0.0,
+          "far": null,
+          "f1": 0.0,
+          "bias": 0.0,
+          "ets": 0.0,
+          "hss": 0.0
+        },
+        "20": {
+          "threshold": 20.0,
+          "hit": 0,
+          "miss": 0,
+          "false_alarm": 0,
+          "correct_negative": 184320,
+          "csi": null,
+          "pod": null,
+          "far": null,
+          "f1": null,
+          "bias": null,
+          "ets": null,
+          "hss": null
+        }
+      },
+      "horizon_event_metrics": {
+        "0h-1h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 14,
+            "false_alarm": 0,
+            "correct_negative": 92146,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "1h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 47,
+            "false_alarm": 0,
+            "correct_negative": 92113,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "0h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 61,
+            "false_alarm": 0,
+            "correct_negative": 184259,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 184320,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        }
+      }
+    },
+    "pwv_aligned": {
+      "samples": 1,
+      "sample_sha256": "b6a68bf01339077cc4bc71743ed30d6763de375208991728757d47701849bce4",
+      "mae": 0.3819768269856771,
+      "rmse": 0.9023352479006622,
+      "bias": -0.19859235551622179,
+      "event_metrics": {
+        "10": {
+          "threshold": 10.0,
+          "hit": 0,
+          "miss": 61,
+          "false_alarm": 0,
+          "correct_negative": 184259,
+          "csi": 0.0,
+          "pod": 0.0,
+          "far": null,
+          "f1": 0.0,
+          "bias": 0.0,
+          "ets": 0.0,
+          "hss": 0.0
+        },
+        "20": {
+          "threshold": 20.0,
+          "hit": 0,
+          "miss": 0,
+          "false_alarm": 0,
+          "correct_negative": 184320,
+          "csi": null,
+          "pod": null,
+          "far": null,
+          "f1": null,
+          "bias": null,
+          "ets": null,
+          "hss": null
+        }
+      },
+      "horizon_event_metrics": {
+        "0h-1h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 14,
+            "false_alarm": 0,
+            "correct_negative": 92146,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "1h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 47,
+            "false_alarm": 0,
+            "correct_negative": 92113,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "0h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 61,
+            "false_alarm": 0,
+            "correct_negative": 184259,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 184320,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        }
+      }
+    },
+    "pwv_displaced": {
+      "samples": 1,
+      "sample_sha256": "b6a68bf01339077cc4bc71743ed30d6763de375208991728757d47701849bce4",
+      "mae": 0.3798856099446615,
+      "rmse": 0.9009192117084587,
+      "bias": -0.19878874884711373,
+      "event_metrics": {
+        "10": {
+          "threshold": 10.0,
+          "hit": 0,
+          "miss": 61,
+          "false_alarm": 0,
+          "correct_negative": 184259,
+          "csi": 0.0,
+          "pod": 0.0,
+          "far": null,
+          "f1": 0.0,
+          "bias": 0.0,
+          "ets": 0.0,
+          "hss": 0.0
+        },
+        "20": {
+          "threshold": 20.0,
+          "hit": 0,
+          "miss": 0,
+          "false_alarm": 0,
+          "correct_negative": 184320,
+          "csi": null,
+          "pod": null,
+          "far": null,
+          "f1": null,
+          "bias": null,
+          "ets": null,
+          "hss": null
+        }
+      },
+      "horizon_event_metrics": {
+        "0h-1h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 14,
+            "false_alarm": 0,
+            "correct_negative": 92146,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "1h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 47,
+            "false_alarm": 0,
+            "correct_negative": 92113,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 92160,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        },
+        "0h-2h": {
+          "10.0": {
+            "threshold": 10.0,
+            "hit": 0,
+            "miss": 61,
+            "false_alarm": 0,
+            "correct_negative": 184259,
+            "csi": 0.0,
+            "pod": 0.0,
+            "far": null,
+            "f1": 0.0,
+            "bias": 0.0,
+            "ets": 0.0,
+            "hss": 0.0
+          },
+          "20.0": {
+            "threshold": 20.0,
+            "hit": 0,
+            "miss": 0,
+            "false_alarm": 0,
+            "correct_negative": 184320,
+            "csi": null,
+            "pod": null,
+            "far": null,
+            "f1": null,
+            "bias": null,
+            "ets": null,
+            "hss": null
+          }
+        }
+      }
+    }
+  },
+  "paired_comparisons": {
+    "pwv_aligned_minus_radar_only": {
+      "by_threshold": {
+        "10": {
+          "csi_delta": 0.0,
+          "far_delta": null,
+          "day_cluster_bootstrap_csi_delta": {
+            "n_cases": 1,
+            "repetitions": 20,
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "20": {
+          "csi_delta": null,
+          "far_delta": null,
+          "day_cluster_bootstrap_csi_delta": {
+            "n_cases": 1,
+            "repetitions": 0,
+            "mean": null,
+            "ci95": [
+              null,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "pwv_aligned_minus_pwv_displaced": {
+      "by_threshold": {
+        "10": {
+          "csi_delta": 0.0,
+          "far_delta": null,
+          "day_cluster_bootstrap_csi_delta": {
+            "n_cases": 1,
+            "repetitions": 20,
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "20": {
+          "csi_delta": null,
+          "far_delta": null,
+          "day_cluster_bootstrap_csi_delta": {
+            "n_cases": 1,
+            "repetitions": 0,
+            "mean": null,
+            "ci95": [
+              null,
+              null
+            ]
+          }
+        }
+      }
+    }
+  },
+  "gate": {
+    "minimum_csi_delta": 0.003,
+    "maximum_far_delta": 0.005,
+    "maximum_relative_mae_increase": 0.005,
+    "relative_mae_increase_vs_radar": 0.0006980040814250969,
+    "point_estimate_pass": false,
+    "interpretation": "One seed is development evidence only. A point-estimate pass promotes to three-seed replication; replication additionally requires positive day-cluster bootstrap lower bounds."
+  }
+}

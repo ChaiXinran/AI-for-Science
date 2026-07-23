@@ -273,3 +273,22 @@ train-time spatial displacement control. A one-seed pass requires at least
 +0.003 absolute CSI at both primary thresholds, FAR degradation <=0.005, and
 relative MAE degradation <=0.5%; it promotes only to three-seed paired
 day-cluster-bootstrap replication.
+## 2026-07-23 — Replace recursive PWV source with latent state fusion
+
+**Decision:** Stop tuning the signed recursive-source head. Do not retain
+`Zero-PWV` as a separately named scientific control.
+
+**Evidence:** On 512 validation windows, signed real PWV reduced CSI@10 by
+0.0314, increased FAR@10 by 0.1457, and increased MAE by 71.2% relative to the
+radar identity forecast. CSI@20 improved by 0.0067 but its day-cluster
+bootstrap interval crossed zero. Real PWV did not clearly beat the spatial
+control.
+
+**Successor:** Encode observed PWV as a state, fuse it with radar at the
+generative latent using cross-attention, and train end-to-end at a reduced
+radar learning rate. Compare aligned PWV with separately trained radar-only
+and train-time displaced-PWV models.
+
+**Gate:** Do not run multiple seeds or locked-test/full-data experiments unless
+aligned PWV improves CSI@10 and CSI@20 by at least 0.003 against both controls
+without FAR increasing more than 0.005 or MAE increasing more than 0.5%.

@@ -1,0 +1,38 @@
+{
+  "train": {
+    "split": "train",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\pwv_signed_calibrator\\protocol\\split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "samples": 1,
+    "sample_sha256": "37c83a0bed1b1520588b064447353757355dad3f4ab8e6bcd75cf3b18d6da8f2",
+    "records": [
+      {
+        "case_name": "20250501",
+        "start_file": "2025-05-01-00-00-00.png",
+        "end_file": "2025-05-01-02-48-00.png",
+        "relative_dir": "202505/20250501"
+      }
+    ]
+  },
+  "val": {
+    "split": "val",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\pwv_signed_calibrator\\protocol\\split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "samples": 1,
+    "sample_sha256": "b6a68bf01339077cc4bc71743ed30d6763de375208991728757d47701849bce4",
+    "records": [
+      {
+        "case_name": "20250723",
+        "start_file": "2025-07-23-00-00-00.png",
+        "end_file": "2025-07-23-02-48-00.png",
+        "relative_dir": "202507/20250723"
+      }
+    ]
+  }
+}

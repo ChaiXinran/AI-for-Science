@@ -159,6 +159,9 @@ def build_parser():
     parser.add_argument("--pwv_climatology_path", type=str, default="")
     parser.add_argument("--signed_use_tendency", action="store_true")
     parser.add_argument("--signed_residual_scale", type=float, default=0.25)
+    parser.add_argument("--pwv_latent_channels", type=int, default=8)
+    parser.add_argument("--pwv_latent_heads", type=int, default=4)
+    parser.add_argument("--pwv_latent_dropout", type=float, default=0.0)
     parser.add_argument("--deterministic_noise", action="store_true")
     return parser
 

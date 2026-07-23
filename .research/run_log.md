@@ -200,3 +200,24 @@
   `eventwise_records.json`.
 - The two-window metrics are pipeline evidence only. They contain no 20 mm/h
   positives and cannot support a CSI claim.
+## 2026-07-23 — PWV latent-state fusion implementation and real-data smoke
+
+- Retired `Zero-PWV` as a separate experiment and stopped recursive PWV source
+  injection after the signed-source pilot failed its CSI/FAR/MAE gate.
+- Implemented `PWVLatentFusionNowcastNet`: separate observed-PWV encoder,
+  radar-query/PWV-key-value cross-attention at the 1/8-resolution generative
+  latent, learned fusion gate, and future-PWV auxiliary target.
+- PWV never enters the recursive radar source or motion equations. Future PWV
+  is a training target only and is not consumed by the forward predictor.
+- Locked three variants: continued radar-only, aligned PWV, and train-time
+  random large spatial displacement. Evaluation uses a deterministic
+  half-domain displacement. All begin from the same 0-2 h radar checkpoint.
+- Real-data smoke used two train and two validation windows from the local
+  `DATA_2025_S`. The latent model loaded 676 radar tensors with zero missing,
+  added 19,630 fusion parameters in the light-channel smoke configuration,
+  and completed aligned/displaced training plus all three evaluations.
+- All three evaluations used sample SHA-256
+  `b6a68bf01339077cc4bc71743ed30d6763de375208991728757d47701849bce4`.
+  The smoke report completed with null-safe handling of thresholds that contain
+  no positive events.
+- Ten model/data smoke tests and one paired-bootstrap report test passed.

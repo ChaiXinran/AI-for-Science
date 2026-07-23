@@ -93,6 +93,7 @@ def build_parser():
     parser.add_argument("--resume", type=str, default="")
     parser.add_argument("--init_generator", type=str, default="")
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--matched_discriminator_seed", type=int, default=-1)
     parser.add_argument("--log_interval", type=int, default=20)
     add_facl_args(parser)
     return parser
@@ -319,7 +320,11 @@ def main():
     if args.init_generator:
         load_generator_weights(generator, args.init_generator, args.device)
         print("initialized generator from {}".format(args.init_generator), flush=True)
+    if args.matched_discriminator_seed >= 0:
+        seed_everything(args.matched_discriminator_seed)
     discriminator = TemporalDiscriminator(args.gen_oc, base_channels=args.disc_channels).to(args.device)
+    if args.matched_discriminator_seed >= 0:
+        seed_everything(args.seed + 1)
     opt_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g, betas=(args.beta1, args.beta2))
     opt_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d, betas=(args.beta1, args.beta2))
     scaler_g = make_grad_scaler(args.device, args.amp)

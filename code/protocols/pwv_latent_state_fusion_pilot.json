@@ -1,0 +1,49 @@
+{
+  "protocol_id": "pwv_latent_state_fusion_pilot",
+  "status": "implemented_real_data_smoke_passed_ready_for_server_pilot",
+  "hypothesis": "Observed PWV improves 0-2 h heavy-rain prediction when encoded as an atmospheric state and fused with radar in latent space; correctly aligned PWV must outperform a train-time spatially displaced PWV control.",
+  "sequence": {
+    "frame_minutes": 6,
+    "input_frames": 9,
+    "forecast_frames": 20,
+    "forecast_horizon": "0-2h"
+  },
+  "model": {
+    "name": "PWVLatentFusionNowcastNet",
+    "radar_initialization": "same matched 0-2 h radar checkpoint for every variant",
+    "pwv_input": "observed 9-frame PWV sequence only",
+    "fusion": "independent PWV encoder; radar-query/PWV-key-value cross-attention at the 1/8-resolution generative latent; learned feature gate",
+    "recursion_constraint": "PWV never enters the recursive radar source or motion equations",
+    "auxiliary_task": "predict future PWV during training only",
+    "fine_tuning": "radar path at 0.1x learning rate; new PWV/fusion modules at 1x learning rate"
+  },
+  "variants": {
+    "radar_only": "radar checkpoint continued for the same extra epochs at the radar-path learning rate",
+    "pwv_aligned": "real geographically aligned PWV for training and evaluation",
+    "pwv_displaced": "independent random large cyclic PWV displacement per training sample; deterministic half-domain cyclic displacement for evaluation"
+  },
+  "excluded_controls": {
+    "zero_pwv": "removed; it duplicates radar identity or creates an inference-time distribution shift",
+    "temporal_reverse": "not primary because the first model tests the full observed state sequence and spatial information",
+    "recursive_signed_source": "falsified by the preceding pilot due to accumulated false alarms"
+  },
+  "development_budget": {
+    "train_windows": 2048,
+    "validation_windows": 512,
+    "seed": 2026,
+    "epochs_max": 10,
+    "checkpoint_selection": "validation rain weighted-L1; PWV auxiliary loss is logged but does not select checkpoints"
+  },
+  "primary_metrics": {
+    "thresholds_mm_h": [10.0, 20.0],
+    "horizons": ["0-1h", "1-2h", "0-2h"],
+    "additional": ["POD", "FAR", "frequency bias", "MAE", "RMSE", "FSS"]
+  },
+  "promotion_gate": {
+    "minimum_absolute_csi_delta_at_each_threshold": 0.003,
+    "must_beat": ["radar_only", "pwv_displaced"],
+    "maximum_far_delta_vs_radar": 0.005,
+    "maximum_relative_mae_increase_vs_radar": 0.005,
+    "one_seed_role": "development effect-size screen only"
+  }
+}

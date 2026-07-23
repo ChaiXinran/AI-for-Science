@@ -1336,6 +1336,7 @@ def main():
     persistence_objects = init_object_store(object_thresholds, args.gen_oc)
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
+    eventwise_records = []
 
     with torch.no_grad():
         for batch_id, batch in enumerate(loader):
@@ -1378,6 +1379,23 @@ def main():
             update_cra_store(persistence_cra, persistence, target, args.frame_minutes, cra_lead_minutes, cra_thresholds, args.cra_max_shift, args.grid_km)
             update_object_store(model_objects, pred, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
             update_object_store(persistence_objects, persistence, target, object_thresholds, args.object_min_area, args.object_iou_threshold, args.grid_km)
+            for sample_index in range(pred.shape[0]):
+                sample_id = batch.get("sample_id", [""] * pred.shape[0])[sample_index]
+                case_name = batch.get("case_name", [""] * pred.shape[0])[sample_index]
+                start_file = batch.get("start_file", [""] * pred.shape[0])[sample_index]
+                eventwise_records.append(
+                    {
+                        "sample_id": str(sample_id),
+                        "case_name": str(case_name),
+                        "start_file": str(start_file),
+                        "model_scalar": scalar_metrics_for_arrays(
+                            pred[sample_index], target[sample_index]
+                        ),
+                        "model_events": event_metrics_for_arrays(
+                            pred[sample_index], target[sample_index], thresholds
+                        ),
+                    }
+                )
 
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
@@ -1488,6 +1506,14 @@ def main():
     metrics = sanitize_json_numbers(metrics)
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, allow_nan=False)
+    with open(output_dir / "eventwise_records.json", "w", encoding="utf-8") as f:
+        json.dump(
+            sanitize_json_numbers(eventwise_records),
+            f,
+            indent=2,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
     print(json.dumps(metrics, indent=2, allow_nan=False), flush=True)
 
 
