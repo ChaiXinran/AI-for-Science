@@ -1,0 +1,583 @@
+                                   The Thirty-Ninth AAAI Conference on Artificial Intelligence (AAAI-25)
+
+
+
+
+     Integrating Multi-Source Data for Long Sequence Precipitation Forecasting
+
+    Demin Yu, Wenzhi Feng, Kenghong Lin, Xutao Li* , Yunming Ye, Chuyao Luo, Wenchuan Du
+                                  Harbin Institute of Technology, Shenzhen 518000, China
+                      {deminy,23b951053,linkenghong}@stu.hit.edu.cn, {lixutao, yeyunming}@hit.edu.cn,
+                                         {luochuyao.dalian,doorvant}@gmail.com,
+
+
+
+                                                                                                    Lead Time
+                            Abstract
+                                                                               Input
+  Long-sequence precipitation forecasting is critical for both                (Satellite
+  meteorological science and smart city applications. The pri-                & Radar)
+  mary objective of this task is to predict future radar echo
+  sequences, which provide high resolution and timely refer-                   Ground
+  ences for atmospheric precipitation distribution based on cur-                Truth
+  rent observations. However, the chaotic nature of precipita-               Single-model                               Chaotic Precipitation
+                                                                                                                             Evolution
+  tion systems poses significant challenges in extending reli-                Prediction
+  able forecast horizons. Most existing methods struggle with                Multi-model
+                                                                              Prediction
+  accuracy and clarity when extended to long-sequence predic-
+  tions, such as three-hour forecasts. This is primarily due to                 Ours
+  the insufficiency of spatio-temporal information within a sin-
+  gle modality over time. In this paper, we propose a cascading                                    (a)                     (b)
+  forecasting framework that adaptively extracts and integrates
+  multimodal spatio-temporal information to support accurate                 Figure 1: The (a) shows different models’ performances in
+  and realistic long-sequence radar forecasting. Our framework               precipitation nowcasting. For gradually intensifying precip-
+  includes a temporal adaptive predictor and a flow-based pre-               itation events, single-model prediction is unable to forecast
+  cipitation distribution adaptor. The predictor utilizes a multi-           accurately. While multi-modality aids in better modeling
+  branch encoder-decoder architecture. This design allows it                 precipitation trends, it still faces challenges related to ambi-
+  to extract meteorological sequences from multiple sources                  guity. Our method, however, achieves both accurate and re-
+  at varying scales, resulting in an initial global precipitation            alistic representation. The (b) illustrates the various sources
+  estimate. The core component is a carefully designed cross-                of multi-model meteorological data, which offer insights
+  attention module with a temporal adaptive layer to enhance
+  multi-modality alignment. The initial estimate is then refined
+                                                                             from different perspectives during precipitation events.
+  by the flow-based adaptor, which adjusts the prediction to
+  match the target precipitation distribution, enhancing local
+  details and correcting extreme precipitation patterns. We val-                Conventional numerical weather prediction (NWP) meth-
+  idated our method using real multi-source dataset for long-
+                                                                             ods (Bauer, Thorpe, and Brunet 2015) rely on various mete-
+  sequence forecasting, and the experimental results demon-
+  strate that our approach outperforms existing state-of-the-art             orological physical equations to provide high-resolution and
+  methods.                                                                   timely atmospheric precipitation data. However, these meth-
+                                                                             ods are computationally expensive and time-consuming. In
+                                                                             recent years, data-driven neural network-based models (Wu
+                        Introduction                                         et al. 2024; Gao et al. 2022a) have emerged as a promis-
+Forecasting of long-sequence precipitation plays a crucial                   ing alternative for precipitation nowcasting. Unlike tradi-
+role in societal development, impacting daily planning, en-                  tional approaches that rely on physical knowledge prior,
+ergy management, and transportation (Bouwer 2019). This                      these methods learn latent nonlinear patterns of precipita-
+long-standing scientific challenge aims to deliver accurate                  tion evolution from large meteorological datasets to make
+forecasts with fine-grained spatio-temporal resolution for                   predictions. They focus on minimizing the pixel distance be-
+the upcoming hours (e.g., 0-6 hours) based on current ob-                    tween the prediction and the target, allowing for a global
+servations. Radar echo sequences, with their high resolution                 estimation of precipitation distribution. However, these ap-
+and timely atmospheric precipitation data, provide essential                 proaches often suffer from blurriness in long-sequence pre-
+spatio-temporal information to understand the precipitation                  dictions. More recently, distribution-based generative mod-
+process, making them integral to this forecasting task.                      els (Yu et al. 2024; Yoon et al. 2023) have been employed for
+    * Corresponding author                                                   spatio-temporal prediction tasks. These models can gener-
+Copyright © 2025, Association for the Advancement of Artificial              ate realistic forecasts by sampling from the target predictive
+Intelligence (www.aaai.org). All rights reserved.                            distribution, but they often experience a decline in accuracy
+
+
+                                                                     28539
+over longer prediction horizons.                                           flow prediction (Dai et al. 2022), among others. Spatio-
+   Despite the increasing adoption of neural network-based                 temporal prediction models can be categorized into deter-
+models, generating accurate and realistic long-sequence                    ministic and probabilistic models, depending on their learn-
+forecasts remains a significant challenge. This difficulty                 ing objectives (Yu et al. 2024; Yoon et al. 2023).
+arises primarily because single-modality inputs, such as                      Deterministic predictive models are the mainstream of
+radar echo maps, fail to provide sufficient spatio-temporal                the existing approaches for spatio-temporal prediction (Yuan
+information, leading to blurry predictions and an underesti-               and Li 2021; Ning et al. 2023). They can be categorized
+mation of high-value echoes, as shown in Figure 1 (a). In-                 into two groups: recurrent-based models and recurrent-free
+corporating multi-source meteorological observations, such                 models. Recurrent-based models learn a hidden state from
+as various satellite sequences, can effectively mitigate the               historical sequences and generate future frames sequentially
+spatio-temporal information bottleneck. As illustrated in                  using this hidden state (Shi et al. 2017; Wang et al. 2022).
+Figure 1 (b), satellite and radar offer insights from different            For instance, ConvLSTM (Shi et al. 2015) combines con-
+perspectives during precipitation events, which can comple-                volutional layers with LSTM (Long Short-Term Memory)
+ment each other to provide a more comprehensive under-                     cells to extract spatial and temporal features for determin-
+standing of the precipitation process.                                     istic precipitation forecasting. Similarly, PredRNN (Wang
+   In this work, we propose a multi-model spatio-temporal                  et al. 2022) improves spatial-temporal modeling by separat-
+forecasting framework for accurate and realistic long-                     ing long-term and short-term memory cells. On the other
+sequence precipitation forecasting, specifically for three-                hand, recurrent-free models (Gao et al. 2022b; Ning et al.
+hour ahead predictions. The framework is composed of                       2023) encode input frames into hidden states and decode
+two key components: a temporal-adaptive multimodal pre-                    all predictive frames simultaneously. For example, Earth-
+dictor and a flow-based precipitation distribution adap-                   former (Gao et al. 2022a) leveraged transformer to build the
+tor. The overall architecture is depicted in Figure 2. The                 encoder-decoder for prediction. However, all the determinis-
+temporal-adaptive multimodal predictor employs a multi-                    tic predictive methods suffer from the aforementioned blurry
+branch encoder-decoder architecture to extract features                    issue and high-value echoes fading away issue for precipita-
+from various modalities, enabling long-sequence predic-                    tion nowcasting, because of the average error minimization
+tions through a recurrent multi-task learning approach. A                  of deterministic loss objective (Xu et al. 2024).
+temporal-adaptive multimodal attention module is incorpo-                     Probabilistic generative models are designed to cap-
+rated to facilitate cross-modal interactions within the latent             ture the spatio-temporal uncertainty by estimating the con-
+space, while the temporal adaptive layer adjusts parameters                ditional distribution of future state (Wen et al. 2023). Some
+dynamically across different stages of the prediction pro-                 models aim to enhance the realism of predictions based
+cess. Following this, the flow-based distribution adaptor re-              on adversarial training (Tulyakov et al. 2018; Luo et al.
+fines the initial predictions by transforming them into the tar-           2022; Ravuri et al. 2021).Generative Adversarial Networks
+get precipitation distribution using a learned ODE trajectory.             (GANs) are notorious for training instability, leading to
+By integrating these two components into a cohesive cascad-                issues such as mode collapse and the generation of arti-
+ing framework, our approach enables both accurate and real-                facts. Recently, with the advent of generative diffusion mod-
+istic precipitation predictions for the three-hour forecasting             els (Ho, Jain, and Abbeel 2020; Zhou et al. 2023), several
+task.                                                                      works have adopted diffusion models for predictive tasks
+   In summary, our main contributions are summarized as:                   to overcome the limitations of GANs, achieving remarkable
+                                                                           performance (Gao et al. 2024b; Voleti, Jolicoeur-Martineau,
+ • We propose a method that incorporates multi-source me-
+                                                                           and Pal 2022). While flow matching models (Esser et al.
+   teorological data with temporal alignment and multi-
+                                                                           2024; Liu, Gong, and Liu 2022), which offer theoretical
+   modality information fusion to enhance long-sequence
+                                                                           advantages as a variant of diffusion models, have shown
+   prediction.
+                                                                           promise, they have yet to be firmly established in the field
+ • We introduce a flow-based distribution transfer technique               of spatio-temporal prediction. However, because these meth-
+   that directly combines deterministic estimations with the               ods model the entire precipitation system as stochastic, they
+   target distribution, achieving both accurate and realistic              introduce uncontrollable randomness that can negatively im-
+   precipitation forecasts.                                                pact prediction accuracy.
+ • We perform extensive experiments on real multi-source
+   datasets, demonstrating that our method significantly im-               Multi-source Weather Forecasting
+   proves long-sequence predictive performance.                            Utilizing multi-source meteorological data offers diverse
+                                                                           perspectives on precipitation evolution, as illustrated in Fig-
+                      Related Work                                         ure 1 (b), by incorporating supplementary physical informa-
+                                                                           tion that enhances the robustness and precision of prediction
+Spatio-temporal Prediction                                                 outcomes (Xiong et al. 2024; Veillette, Samsi, and Matti-
+The spatio-temporal prediction task focuses on forecasting                 oli 2020). This approach is particularly effective in improv-
+future frames based on historical observations, with appli-                ing the accuracy of precipitation nowcasting (Li et al. 2023).
+cations in various real-world domains such as weather fore-                Some methods (Pathak et al. 2022; Sønderby et al. 2020)
+casting (Shi et al. 2015, 2017), video prediction (Gao et al.              employ an early-fusion mechanism to process multimodal
+2022b), autonomous driving (Fu et al. 2021), and traffic                   data. These techniques typically involve interpolation and
+
+
+                                                                   28540
+               : Temp-AdaLN ResBlock               : ST-MM-TransBlock         ~ : Positional Embedding                     : Frame Index
+
+                                                                                               𝑥 𝑡+1 /𝑁 ← 𝑥𝑡/𝑁 + 𝜈𝜃 (𝑥𝑡/𝑁 , 𝑡/N, 𝑖)/N
+
+                                                                                                          𝑖                   𝑡
+      ~                                     ~                                                                    Unet
+                                                    𝑖
+
+                                                                                                                𝑁 steps               𝑥ො
+                                                                                                  𝑥′
+                                                                                                       (c) Inference of Adaptor
+                                                                                                              t ∈ 𝒰(0,1)
+
+                                                                                                          𝑖                   𝑡
+
+                                                                             ……                                 Unet
+
+                                                                                                   𝑥′                              𝑥ො − 𝑥′
+          (a) Detailed Architecture of Predictor        (b) Multi-source Predictor                     (d) Training of Adaptor
+
+
+Figure 2: The overview of our framework for multi-source long-sequence precipitation nowcasting, which is composed of a
+multi-model predictor(b) cascaded with a distribution adaptor (c)(d). The predictor employs multiple encoder-decoder branches
+to recurrently forecast multimodal sequences, as depicted in (a). The preliminary predictions are subsequently refined through
+a flow-based adaptor. The (c) and (d) demonstrate the inference and training processes of the flow model, respectively.
+
+
+down-sampling to align various data types, such as radar,                 sequences x0:L̂ given the historical radar data x−L:0 com-
+spectral images, temperature, and precipitation, into a uni-              bined with the corresponding satellite data y −L:0 . Follow-
+form format, integrating them into a single tensor along the              ing (Gao et al. 2024a; Veillette, Samsi, and Mattioli 2020)
+channel dimension. Alternatively, other approaches (Bous-                 we organize the multi-source data into temporal-aligned for-
+sif et al. 2024; Boussioux et al. 2022) use an intermediate-              mulation to enable a more comprehensive and systematic de-
+fusion mechanism, merging modalities within the encoded                   scription of atmospheric evolution.
+feature space to enhance spatio-temporal predictions. How-
+ever, both early-fusion and intermediate-fusion methods of-               Overall Model
+ten lack the efficiency and flexibility needed for multimodal             Our framework is designed to achieve long-sequence precip-
+spatio-temporal feature fusion, limiting their effectiveness in           itation forecasting by utilizing multi-source meteorological
+delivering accurate long-sequence forecasts.                              observations, specifically targeting three-hour ahead predic-
+                                                                          tions. The overview of our model is illustrated in Figure 2.
+                      Methodology                                         The framework consists of two main components: a multi-
+In this section, we will introduce the proposed multi-source              model predictor (Figure 2 (b)) and a precipitation distribu-
+long-sequence forecasting method. We first outline the task               tion adaptor (Figure 2 (c) and (d)). The multi-model predic-
+formulation in Section . The overall architecture is described            tor is responsible for generating long-sequence global esti-
+in Section . In Section , we propose our temporal adaptive                mates by integrating data from multiple sources, while the
+predictor with carefully designed multimodal attention mod-               precipitation distribution adaptor focuses on modeling local
+ule. Finally, Section introduces our flow-based adaptor for               intensity variations using a learnable ODE transfer trajec-
+precipitation distribution transfer for realistic forecasting.            tory. Unlike other multimodal approaches (Li et al. 2023;
+                                                                          Gao et al. 2024a), we employ a multi-task learning net-
+Task Formulation                                                          work, denoted as Pθ , to simultaneously predict both radar
+Formally, we denote the weather state at time period i as a               and satellite sequences, x′0:L̂ and y ′0:L̂ , respectively. This
+tensor X i ∈ RC×H×W , where C represents the number of                    process can be mathematically represented as follows:
+atmospheric variables, H and W are the height and width. In
+this paper, we formulate the multi-source precipitation now-                            x′0:L̂ , y ′0:L̂ = Pθ (x−L:0 , y −L:0 ),             (1)
+casting problem as a multimodal spatio-temporal prediction
+task. In this case, we define x, y ∈ X , which donate the                 where θ represents the parameters of the predictor, and L
+radar echo sequence and satellite sequence, respectively. The             and L̂ denote the input and output sequence lengths, respec-
+objective of our framework is to forecast future radar echo               tively. Subsequently, the radar prediction x′0:L̂ is refined by
+
+
+                                                                  28541
+  Frame Index                                                           Frame Index
+  Embedding           Radar Tokens                 Satellite Tokens
+                                                                        Embedding
+
+ SiLU + Linear        Layer Norm                     Layer Norm        SiLU + Linear                                           𝐻                                𝐻
+         𝛾1 , 𝛽1        Adaptive                      Adaptive         𝛾1 , 𝛽1
+                      Scale & Shift                 Scale & Shift
+                                                                                                                           𝑊                                𝑊
+                           Linear                      Linear                                                 𝑇                                𝑇
+                                                                                                    Figure 4: The illustration about attention mechanism for ad-
+                    Pack Op
+                                        Pack Op
+                                                                                                    jacent tokens in the spatial and temporal dimension.
+                                                             Pack Op
+
+
+                       Q                                 K
+                       V             Attention Op
+                                                                                                    Multi-Source Spatio-temporal Inforamtion Fusion The
+                                                                                                    challenge of cross-modal interaction arises from the differ-
+                                        Split Op                                                    ing perspectives and spatio-temporal scales at which vari-
+                                                                                                    ous modalities capture the precipitation evolution process.
+                            Linear                     Linear
+                                                                                                    For example, radar data focuses on the fine-grained details
+           𝛼1            Adaptive                     Adaptive          𝛼1                          of vertically integrated liquid beneath clouds, while satellite
+                          Scale                        Scale                                        data provides a broader perspective, capturing overall wa-
+                            Add Op                     Add Op
+                                                                                                    ter vapor density and temperature from above the clouds,
+                                                                                                    as shown in Figure 1(b). To address this, specifically devel-
+                       Layer Norm                   Layer Norm                                      oped a temporal-adaptive 3D-ResBlock and a multimodal
+         𝛾2 , 𝛽2         Adaptive                     Adaptive         𝛾2 , 𝛽2                      transformer block to extract multi-scale spatio-temporal fea-
+                       Scale & Shift                Scale & Shift                                   tures at different branch. Multiple layers of 3D ResNet are
+                                                                                                    stacked to capture coarse-grained spatio-temporal informa-
+                        Pointwise                    Pointwise                                      tion with relatively low computational cost. Additionally, we
+                       Feedforward                  Feedforward
+                                                                                                    employ 2D and 1D convolutions for spatio-temporal down-
+           𝛼2            Adaptive                     Adaptive          𝛼2                          sampling and upsampling. Temporal downsampling is par-
+                          Scale                        Scale                                        ticularly beneficial as it increases information density along
+                            Add Op                     Add Op                                       the temporal dimension. For multi-modality data with vary-
+                                                                                                    ing temporal resolutions, temporal compression enables the
+                                                                                                    alignment of temporal features within a high semantic space.
+Figure 3: The illustration of multimodal transformer block.                                            Once the multi-scale features of different modalities are
+                                                                                                    learned, each modality must identify and integrate valuable
+                                                                                                    spatio-temporal representations from the others to enrich
+a flow-based distribution adaptor, v θ , which transfers it to                                      the extracted information. To facilitate this, we designed
+a domain x̂0:L̂ that closely matches the target data distri-                                        a multimodal spatio-temporal transformer block inspired
+                                                                                                    by (Esser et al. 2024; Liu et al. 2023b), which enables inter-
+bution x0:L̂ . The learning objective for this process can be
+                                                                                                    action among multimodal features within the encoded high-
+expressed as:
+                                                                                                    dimensional feature space, as illustrated in Figure 3. Unlike
+                   x̂0:L̂ = arg max v θ (x̂0:L̂ |x′0:L̂ ),                            (2)           standard cross-modal attention, we apply a packed product
+                                    x0:L̂
+                                                                                                    on the QKV (Query, Key, Value) tensors across the token
+                                                                                                    dimension of multiple modalities before calculating atten-
+Throughout the framework, we disentangle the long-                                                  tion, followed by projecting these back into their respective
+sequence precipitation nowcasting task into two simpler                                             modalities. This approach enhances the model’s scalability.
+tasks: predicting the deterministic radar estimation x′ and                                         By leveraging this mechanism across both spatial and tem-
+using it as a basis to generate probabilistic forecasts x̂. Note                                    poral dimensions, as illustrated in Figure 4, we can theo-
+that we denote the i-th frame as xi , with the superscript i                                        retically build a network capable of integrating a broader
+indicating the frame index, and use a subscript t to refer to                                       range of multi-source meteorological data, such as atmo-
+the t-th ODE step state xt in the subsequent sections.                                              spheric physical background, thereby improving accuracy.
+
+Temporal-Adaptive Multimodal Predictor
+Multi-source long-sequence prediction task presents two                                             Recurrent Temporal Adaptive Prediction As for the
+primary challenges: enabling spatio-temporal information                                            challenge of long-sequence temporal dependency modeling,
+interaction across different modality and modeling long-                                            it is inevitable that the prediction x′0:L̂ suffers from blurri-
+sequence temporal dependencies. Therefore, we propose a                                             ness of local details over time, because the deterministic loss
+novel multimodal spatio-temporal joint prediction network,                                          drives models to predict the evolution of the small-scale pre-
+which employs a multi-model attention mechanism and a                                               cipitation system into a mean value to represent the underly-
+temporal adaptive layer to address these two issues. The                                            ing uncertainty (Yu et al. 2024; Ravuri et al. 2021; Gong
+overall architecture is shown in Figure 2 (a).                                                      et al. 2024). However, early prediction results often tend
+
+
+                                                                                            28542
+to retain details due to their low uncertainty. The distribu-                Algorithm 1: Final prediction inference
+tion bias between early and later predictions contributes to                 Input: The initial prediction x0 = x′
+why existing methods can only support short-sequence reli-                   Parameter: t, N
+able precipitation forecasts, i.e. 0 ∼2 hours. To address this               Output: The final prediction x̂
+challenge, we propose Temp-AdaLN, a temporal adaptive                         1: Let t ← 0, N ← 1000.
+layer for long sequence prediction that incorporates the lead                 2: while Time step t < N do
+time of predictive segments into the network. We map frame                    3:   x(t+1)/N ← xt/N + N1 v θ (xt/N , Nt , i)
+indices to temporal embeddings using sinusoidal encoding,                     4:   t=t+1
+and integrate this layer into every 3D-ResBlock and mul-                      5: end while
+timodal transformer block after layer normalization. While                    6: return x̂ ← x1
+widely used in generative models (Dhariwal and Nichol
+2021; Peebles and Xie 2023; Perez et al. 2018), this is the
+first application to long-sequence forecasting. The layer is
+defined as follows:                                                          and we can get
+
+                 h = γLayerN orm(h) + β,                      (3)                             xt = tx1 + (1 − t)x0 , t ∈ [0, 1]                (6)
+
+where (γ, β) is obtained from a linear projection of the tem-                Finally, we can optimize our velocity field v θ by optimizing
+poral embedding. In this case, the model can adjust for dif-                               Z 1
+ferent prediction biases, enhancing its ability to perceive                            min     E[∥v θ (xt , t) − (x1 − x0 )∥2 ]dt.     (7)
+temporal patterns at various stages.                                                      θ    0
+
+                                                                                Empirically, the network v θ adopts the widely used UNet
+Flow-based Distribution Adaptor
+                                                                             architecture, with the entire x′ as input. It is notable that
+The prediction results x′ from multi-model predictor tend                    x′ ∈ RL̂×W ×H and there is a transition from clarity to blur-
+to blur as the prediction horizon extends, reducing their ef-                riness over temporal dim. This transition result in the distri-
+fectiveness as direct indicators of future precipitation. How-               bution bias across the sequence: the frames at start stage is
+ever, x′ still captures the global distribution of precipitation,            closer to the target distribution, while the frames at last stage
+suggesting a high probability of accurately estimating large-                have huge bias to the target distribution. To mitigate this dis-
+scale precipitation. Given the distributional difference be-                 tribution bias, we encode the frame index into the network,
+tween the deterministic prediction x′ and the target value x̂,               enhancing its temporal awareness for each frame xi . In this
+we aim to optimize the prediction by addressing this distri-                 case, the v θ can be empirically optimized as
+bution shift, i.e., domain transfer. Domain transfer has been
+extensively studied (Liu, Gong, and Liu 2022; Liu et al.                     min Ex1 ∼X̂ ,x0 ∼X ′ [∥v θ (xt , t, i) − (x1 − x0 )∥2 ], t ∈ U (0, 1).
+2023a). In this paper, we employ flow matching technol-                       θ
+                                                                                                                                         (8)
+ogy instead of diffusion models to learn the transfer trajec-
+                                                                                After the neural velocity field v θ is well-trained, we can
+tory. The key difference between these approaches is that
+                                                                             solve the ODE process of Equation 4 with Euler solver,
+diffusion models initiate their generative denoising process
+                                                                             given the initial observation x0 = x′ ∼ X ′ . After multiply
+with Gaussian white noise, which lacks structural informa-
+                                                                             iterations of ODE process, we then generate the final predic-
+tion about the target data distribution (Liu et al. 2023a).
+                                                                             tion x̂. The inference process is summarized in Algorithm 1.
+   Specifically, the goal of flow matching is to build a trans-
+port flow to push the samples from source distribution, i.e.
+from deterministic prediction distribution X ′ to the target                                          Experiments
+distribution X . Given empirical observations of x0 = x′ ∼                   Experimental Setting
+X ′ , x1 = x̂ ∼ X̂ , the transfer flow inducted from (x0 , x1 ) is           Datasets We utilize the SEVIR dataset (Veillette, Samsi,
+an ordinary differentiable model (ODE) on time t ∈ [0, 1],                   and Mattioli 2020), which provides synchronized multi-
+                      dxt = v θ (xt , t)dt,                   (4)            source precipitation sequences with radar observations at 5-
+                                                                             minute intervals. Each sequence captures four-hour precipi-
+which converts x0 from X ′ to a x1 following X̂ . Here, xt                   tation events over 384×384 km areas. The dataset comprises
+is the intermediate frames at time t and the velocity filed                  11,640 sequences, incorporating Vertically Integrated Liq-
+v θ : RL̂×W ×H → RL̂×W ×H is a neural network with θ                         uid (VIL) radar data, GOES-16 infrared channels (6.9 µm
+as its parameters. Given the intermediate state xt , v θ de-                 and 10.7 µm), and total lightning flashes. Our model predicts
+fines a velocity field that moves xt further towards target                  3-hour precipitation evolution (36 frames) based on the pre-
+data x1 . How to design the prior move trajectory is impor-                  ceding hour’s data (12 frames). Due to computational con-
+tant for the network. Following (Liu, Gong, and Liu 2022;                    straints, we maintain temporal resolution while downscaling
+Wu et al. 2023), we intuitively set the optimal direction at                 spatial dimensions to 128×128.
+any time t is x1 − x0 . In this case, the target transfer ODE                   Verification Metrics Following (Yu et al. 2024; Gao
+process can be formulated as                                                 et al. 2024b), we evaluate model performance using Crit-
+                                                                             ical Success Index (CSI) and Heidke Skill Score (HSS)
+                      dxt = (x1 − x0 )dt,                     (5)            for pixel-wise agreement. We assess CSI at 4×4 pooling
+
+
+                                                                     28543
+               Category         Method        ↑mCSI      ↑mCSI 4x4          ↑CSI 74     ↑CSI 160     ↑mHSS      ↓LPIPS
+                               ConvGRU        0.2181       0.2221            0.4841       0.0365      0.2667     0.3608
+            Recurrent-based    PhyDNet        0.2425       0.2476            0.5359       0.0826      0.3037     0.3779
+                              PredRNNv2       0.2396       0.2479            0.5228       0.0503      0.2957     0.3548
+                                SimVP         0.2440       0.2512            0.5259       0.0524      0.3021     0.3479
+            Recurrent-free    EarthFormer     0.2299       0.2341            0.5026       0.0457      0.2832     0.3552
+                              Earthfarseer    0.2416       0.2413            0.5322       0.0776      0.2979     0.3813
+                                Metnet2       0.2227       0.2278            0.4944       0.0395      0.2722     0.3638
+            Multi-modality      Rain-F        0.1928       0.2174            0.3684       0.0714      0.2332     0.3481
+                               MMUNet         0.1841       0.2087            0.3766       0.0514      0.2183     0.3800
+                                PreDiff       0.2365       0.3129            0.4561       0.1095      0.3017     0.1617
+             Probabilistic      MCVD          0.1982       0.2258            0.3826       0.0737      0.2393     0.2443
+              Generation        DiffCast      0.2418       0.3230            0.4752       0.1228      0.3363     0.1563
+                                 Ours         0.2562       0.3398            0.4882       0.1289      0.3345     0.1413
+
+Table 1: Experiment results on multi-source datasets for long sequence precipitation forecasting task, i.e. 12 → 36 frames. The
+best results are in bold, and the second results are underlined.
+
+
+scales to evaluate neighborhood aggregations and report spe-
+cific CSI values at thresholds of 74 and 160 for low and
+high-value performance analysis. Additionally, we employ
+LPIPS (Yang, Srivastava, and Mandt 2022) to evaluate per-
+ceptual frame quality.
+   Implementation Details Model training spans 100K it-
+erations using AdamW optimizer with a 1e-4 peak learning
+rate and cosine scheduling. The flow-based adaptor imple-
+ments 1000 ODE sampling steps following (Liu, Gong, and
+Liu 2022), while v θ utilizes AdamW optimization with a 9e-
+5 peak learning rate and cosine scheduling. All experiments
+are conducted on NVIDIA A6000-48GB GPU.
+   Reference Methods Our baseline comparisons include
+three categories of models: (1) recurrent-free approaches                    Figure 5: CSI changes against different lead time.
+(Earthfarseer (Wu et al. 2024), Earthformer (Gao et al.
+2022a), SimVP (Gao et al. 2022b)), (2) recurrent mod-
+els (PredRNNv2 (Wang et al. 2022), PhyDNet (Guen                        provements than other baselines, showing a 9.59% improve-
+and Thome 2020), ConvGRU (Shi et al. 2017)), and (3)                    ment over the second-best method DiffCast (Yu et al. 2024).
+diffusion-based methods (DiffCast (Yu et al. 2024), Pred-               (iii) Our method, along with other probabilistic generation
+iff (Gao et al. 2024b), MCVD (Voleti, Jolicoeur-Martineau,              approaches, demonstrates substantial improvements on the
+and Pal 2022)). We adapt single-source models for multi-                CSI 160 metric compared to other methodologies but get
+source data through channel-wise concatenation and include              lower score on the CSI 74 metric. This suggests that prob-
+native multimodal models (Metnet2 (Espeholt et al. 2022),               abilistic generative methods are better suited for modeling
+Rain-F (Choi et al. 2021), MMUnet (Veillette, Samsi, and                high-value regions, effectively addressing the issue of high-
+Mattioli 2020)).                                                        value disappear in deterministic models. However, the ex-
+                                                                        cessive freedom in these approaches can compromise accu-
+Experimental Results                                                    racy in low-value areas during long-sequence predictions.
+From the results of Table 1, we make the following ob-                     Figure 5 and Figure 6 illustrate the changes in perfor-
+servations: (i) The performance of our proposed method                  mance metrics—Critical Success Index (CSI) and Learned
+achieves state-of-the-art across primary metrics of precipi-            Perceptual Image Patch Similarity (LPIPS)—as a function
+tation forecasting, like mCSI, mCSI 4x4, mHSS. This ver-                of lead time. These curves provide insights into how dif-
+ifies the effectiveness of our framework to integrate mul-              ferent models perform as the prediction horizon extends.
+tiple meteorological sources for long-sequence prediction               We observe that as the lead time increases, the performance
+task. (ii) In terms of LPIPS, which measures the percep-                of all method decreases, because the uncertainty for pre-
+tual quality of predictions, our method makes significant im-           diction is enlarged. However, our method maintains higher
+
+
+                                                                28544
+                                                                                  Input    VIL
+
+                                                                                          IR107
+
+                                                                                          IR069
+
+                                                                                           Lght
+                                                                                  Output                             Lead Time
+                                                                                          GT
+
+                                                                                       PhyDNet
+    Figure 6: LPIPS changes against different lead time.                                SimVP
+
+                                                                                       Metnet2
+         Method             ↑mCSI    ↑mCSI 4x4   ↑mHSS    ↓LPIPS
+  Ours w/o Multi-modality   0.2377    0.2973     0.3078   0.2263                        PreDiff
+  Ours w/o Temp-AdaLN       0.2488    0.3300     0.3263   0.1563
+  Ours w/o Flow Adaptor     0.2468    0.2612     0.3237   0.4383                       DiffCast
+    Ours (Full Model)       0.2562    0.3398     0.3345   0.1413
+                                                                                          Ours
+Table 2: Effects of the multiple source input, Temporal adap-
+tive Layer (Temp-AdaLN) and the Flow-based Adaptor on
+the SEVIR dataset.                                                         Figure 7: A visual example on a precipitation event with
+                                                                           multiple meteorological sequences.
+
+
+CSI scores over extended prediction times compared to other                Case Study
+methods. This indicates that the model is more robust to tem-
+poral degradation, a common challenge in long-sequence                     In Figure 7, we present a visual comparison of several mod-
+forecasting. Regarding LPIPS, which measures visual sim-                   els applied to a precipitation event, demonstrating the effi-
+ilarity and fidelity, our model again shows strong perfor-                 cacy of each method over a 180-minute forecasting horizon.
+mance. The LPIPS scores for our model increase at a slower                 The figure highlights the proposed model’s ability to accu-
+rate compared to most other models, indicating that it more                rately predict both the spatial distribution and intensity of
+effectively preserves visual details and avoids the generation             precipitation. Even after 180 minutes, our model’s outputs
+of blurry or less accurate predictions over time.                          remain closely aligned with the ground truth (GT), showcas-
+                                                                           ing its robustness over extended periods. In contrast, other
+                                                                           models such as PhyDNet, SimVP, and Metnet2 exhibit cer-
+Ablation Studies                                                           tain limitations. PhyDNet and SimVP tend to diffuse pre-
+                                                                           cipitation areas, leading to a loss of critical structural de-
+Table 2 presents the results of the ablation study, which eval-            tails. Metnet2, while preserving some structural elements,
+uates the contributions of the multi-source input, Tempo-                  fails to maintain the intensity of the precipitation, leading to
+ral Adaptive Layer, and Flow-based Adaptor. The ablation                   underestimation in certain regions. Probabilistic models like
+results reveal that each component plays a crucial role in                 PreDiff and DiffCast, although producing visually appealing
+the overall performance: (i) Based on single radar modal-                  forecasts, encounter significant positional deviations, partic-
+ity leads to a noticeable drop in all metrics, particularly in             ularly in long-sequence predictions. By 180 minutes, these
+mCSI and mCSI-4x4, indicating that the incorporation of                    models display noticeable shifts in precipitation locations.
+multimodal data is vital for capturing complex patterns. (ii)
+Excluding the Temp-AdaLN results in a significant decrease
+in performance across all metrics, with the most consid-
+                                                                                                   Conclusion
+erable impact on mHSS and LPIPS. This suggests Temp-                       We present a cascaded framework for three-hour precipita-
+AdaLN is essential for effectively aligning the temporal dy-               tion nowcasting that integrates a temporal-adaptive multi-
+namics of the multimodal inputs, which is critical for long-               model predictor with a flow-based distribution adaptor. By
+sequence forecasting. (iii) The flow-based refinement adap-                leveraging both radar and satellite sequences, our approach
+tor enhances the perceptual quality of forecasting results,                enhances spatio-temporal feature extraction, temporal co-
+as evidenced by reduced LPIPS scores. This adaptor plays                   herence, and local detail preservation. Experimental results
+a vital role in both refining local details and correcting ex-             on multi-source meteorological datasets demonstrate the
+treme precipitation values, thus contributing significantly to             framework’s superior accuracy and realism in long-sequence
+the full model’s high perceptual fidelity.                                 precipitation forecasting.
+
+
+                                                                   28545
+                   Acknowledgments                                        Gao, Z.; Shi, X.; Han, B.; Wang, H.; Jin, X.; Maddix, D.;
+This work was supported in part by NSFC under Grants                      Zhu, Y.; Li, M.; and Wang, Y. B. 2024b. Prediff: Precipita-
+62376072, 62272130, and in part by Shenzhen Science and                   tion nowcasting with latent diffusion models. Advances in
+Technology Program Nos. KCXFZ20240903093006009                            Neural Information Processing Systems, 36.
+and KCXFZ20211020163403005.                                               Gao, Z.; Shi, X.; Wang, H.; Zhu, Y.; Wang, Y. B.; Li, M.;
+                                                                          and Yeung, D.-Y. 2022a. Earthformer: Exploring space-time
+                        References                                        transformers for earth system forecasting. Advances in Neu-
+                                                                          ral Information Processing Systems, 35: 25390–25403.
+Bauer, P.; Thorpe, A.; and Brunet, G. 2015. The quiet revo-
+lution of numerical weather prediction. Nature, 525(7567):                Gao, Z.; Tan, C.; Wu, L.; and Li, S. Z. 2022b. Simvp:
+47–55.                                                                    Simpler yet better video prediction. In Proceedings of
+                                                                          the IEEE/CVF conference on computer vision and pattern
+Boussif, O.; Boukachab, G.; Assouline, D.; Massaroli, S.;                 recognition, 3170–3180.
+Yuan, T.; Benabbou, L.; and Bengio, Y. 2024. Improv-
+ing* day-ahead* Solar Irradiance Time Series Forecasting                  Gong, J.; Bai, L.; Ye, P.; Xu, W.; Liu, N.; Dai, J.; Yang,
+by Leveraging Spatio-Temporal Context. Advances in Neu-                   X.; and Ouyang, W. 2024. Cascast: Skillful high-resolution
+ral Information Processing Systems, 36.                                   precipitation nowcasting via cascaded modelling. arXiv
+                                                                          preprint arXiv:2402.04290.
+Boussioux, L.; Zeng, C.; Guénais, T.; and Bertsimas, D.
+2022. Hurricane forecasting: A novel multimodal machine                   Guen, V. L.; and Thome, N. 2020. Disentangling physical
+learning framework. Weather and forecasting, 37(6): 817–                  dynamics from unknown factors for unsupervised video pre-
+831.                                                                      diction. In Proceedings of the IEEE/CVF Conference on
+                                                                          Computer Vision and Pattern Recognition, 11474–11484.
+Bouwer, L. M. 2019. Observed and projected impacts from
+extreme weather events: implications for loss and damage.                 Ho, J.; Jain, A.; and Abbeel, P. 2020. Denoising diffusion
+Loss and damage from climate change: Concepts, methods                    probabilistic models. Advances in neural information pro-
+and policy options, 63–82.                                                cessing systems, 33: 6840–6851.
+Choi, Y.; Cha, K.; Back, M.; Choi, H.; and Jeon, T. 2021.                 Li, Y.; Liu, Y.; Sun, R.; Guo, F.; Xu, X.; and Xu, H. 2023.
+RAIN-F: A fusion dataset for rainfall prediction using con-               Convective storm VIL and lightning nowcasting using satel-
+volutional neural network. In 2021 IEEE International Geo-                lite and weather radar measurements based on multi-task
+science and Remote Sensing Symposium IGARSS, 7145–                        learning models. Advances in Atmospheric Sciences, 40(5):
+7148. IEEE.                                                               887–899.
+Dai, F.; Huang, P.; Mo, Q.; Xu, X.; Bilal, M.; and Song, H.               Liu, G.-H.; Vahdat, A.; Huang, D.-A.; Theodorou, E. A.;
+2022. ST-InNet: Deep spatio-temporal inception networks                   Nie, W.; and Anandkumar, A. 2023a. I2SB: Image-to-Image
+for traffic flow prediction in smart cities. IEEE Transac-                Schr\” odinger Bridge. arXiv preprint arXiv:2302.05872.
+tions on Intelligent Transportation Systems, 23(10): 19782–               Liu, X.; Gong, C.; and Liu, Q. 2022. Flow straight and fast:
+19794.                                                                    Learning to generate and transfer data with rectified flow.
+Dhariwal, P.; and Nichol, A. 2021. Diffusion models beat                  arXiv preprint arXiv:2209.03003.
+gans on image synthesis. Advances in neural information                   Liu, Y.; Ong, N.; Peng, K.; Xiong, B.; Wang, Q.; Hou, R.;
+processing systems, 34: 8780–8794.                                        Khabsa, M.; Yang, K.; Liu, D.; Williamson, D. S.; et al.
+Espeholt, L.; Agrawal, S.; Sønderby, C.; Kumar, M.; Heek,                 2023b. Mmvit: Multiscale multiview vision transformers.
+J.; Bromberg, C.; Gazen, C.; Carver, R.; Andrychowicz, M.;                arXiv preprint arXiv:2305.00104.
+Hickey, J.; et al. 2022. Deep learning for twelve hour pre-               Luo, C.; Li, X.; Ye, Y.; Feng, S.; and Ng, M. K. 2022. Exper-
+cipitation forecasts. Nature communications, 13(1): 1–10.                 imental study on generative adversarial network for precip-
+Esser, P.; Kulal, S.; Blattmann, A.; Entezari, R.; Müller, J.;           itation nowcasting. IEEE Transactions on Geoscience and
+Saini, H.; Levi, Y.; Lorenz, D.; Sauer, A.; Boesel, F.; et al.            Remote Sensing, 60: 1–20.
+2024. Scaling rectified flow transformers for high-resolution             Ning, S.; Lan, M.; Li, Y.; Chen, C.; Chen, Q.; Chen, X.; Han,
+image synthesis. In Forty-first International Conference on               X.; and Cui, S. 2023. MIMO is all you need: A strong multi-
+Machine Learning.                                                         in-multi-out baseline for video prediction. In Proceedings
+Fu, M.; Zhang, T.; Song, W.; Yang, Y.; and Wang, M. 2021.                 of the AAAI conference on artificial intelligence, volume 37,
+Trajectory prediction-based local spatio-temporal naviga-                 1975–1983.
+tion map for autonomous driving in dynamic highway envi-                  Pathak, J.; Subramanian, S.; Harrington, P.; Raja, S.; Chat-
+ronments. IEEE Transactions on Intelligent Transportation                 topadhyay, A.; Mardani, M.; Kurth, T.; Hall, D.; Li, Z.; Az-
+Systems, 23(7): 6418–6429.                                                izzadenesheli, K.; et al. 2022. Fourcastnet: A global data-
+Gao, Y.; Ma, T.; Xu, C.; and Wang, M. 2024a. Multi-modal                  driven high-resolution weather model using adaptive fourier
+Spatiotemporal Forecasting via Cross-Scale Operator Learn-                neural operators. arXiv preprint arXiv:2202.11214.
+ing and Spatial Representation Aggregation. In Interna-                   Peebles, W.; and Xie, S. 2023. Scalable diffusion models
+tional Joint Conference on Artificial Intelligence, 104–118.              with transformers. In Proceedings of the IEEE/CVF Inter-
+Springer.                                                                 national Conference on Computer Vision, 4195–4205.
+
+
+                                                                  28546
+Perez, E.; Strub, F.; De Vries, H.; Dumoulin, V.; and                    Xu, W.; Chen, K.; Han, T.; Chen, H.; Ouyang, W.; and Bai,
+Courville, A. 2018. Film: Visual reasoning with a general                L. 2024. Extremecast: Boosting extreme value prediction for
+conditioning layer. In Proceedings of the AAAI conference                global weather forecast. arXiv preprint arXiv:2402.01295.
+on artificial intelligence, volume 32.                                   Yang, R.; Srivastava, P.; and Mandt, S. 2022. Diffusion
+Ravuri, S.; Lenc, K.; Willson, M.; Kangin, D.; Lam, R.;                  probabilistic modeling for video generation. arXiv preprint
+Mirowski, P.; Fitzsimons, M.; Athanassiadou, M.; Kashem,                 arXiv:2203.09481.
+S.; Madge, S.; et al. 2021. Skilful precipitation nowcasting             Yoon, D.; Seo, M.; Kim, D.; Choi, Y.; and Cho, D. 2023.
+using deep generative models of radar. Nature, 597(7878):                Deterministic Guidance Diffusion Model for Probabilistic
+672–677.                                                                 Weather Forecasting. arXiv preprint arXiv:2312.02819.
+Shi, X.; Chen, Z.; Wang, H.; Yeung, D.-Y.; Wong, W.-K.;                  Yu, D.; Li, X.; Ye, Y.; Zhang, B.; Luo, C.; Dai, K.; Wang,
+and Woo, W.-c. 2015. Convolutional LSTM network: A ma-                   R.; and Chen, X. 2024. Diffcast: A unified framework via
+chine learning approach for precipitation nowcasting. Ad-                residual diffusion for precipitation nowcasting. In Proceed-
+vances in neural information processing systems, 28.                     ings of the IEEE/CVF Conference on Computer Vision and
+Shi, X.; Gao, Z.; Lausen, L.; Wang, H.; Yeung, D.-Y.; Wong,              Pattern Recognition, 27758–27767.
+W.-k.; and Woo, W.-c. 2017. Deep learning for precipitation              Yuan, H.; and Li, G. 2021. A survey of traffic prediction:
+nowcasting: A benchmark and a new model. Advances in                     from spatio-temporal data to intelligent transportation. Data
+neural information processing systems, 30.                               Science and Engineering, 6(1): 63–85.
+Sønderby, C. K.; Espeholt, L.; Heek, J.; Dehghani, M.;                   Zhou, L.; Lou, A.; Khanna, S.; and Ermon, S. 2023.
+Oliver, A.; Salimans, T.; Agrawal, S.; Hickey, J.; and Kalch-            Denoising diffusion bridge models.            arXiv preprint
+brenner, N. 2020. Metnet: A neural weather model for pre-                arXiv:2309.16948.
+cipitation forecasting. arXiv preprint arXiv:2003.12140.
+Tulyakov, S.; Liu, M.-Y.; Yang, X.; and Kautz, J. 2018.
+Mocogan: Decomposing motion and content for video gen-
+eration. In Proceedings of the IEEE conference on computer
+vision and pattern recognition, 1526–1535.
+Veillette, M.; Samsi, S.; and Mattioli, C. 2020. Sevir: A
+storm event imagery dataset for deep learning applications
+in radar and satellite meteorology. Advances in Neural In-
+formation Processing Systems, 33: 22009–22019.
+Voleti, V.; Jolicoeur-Martineau, A.; and Pal, C. 2022. Mcvd-
+masked conditional video diffusion for prediction, genera-
+tion, and interpolation. Advances in neural information pro-
+cessing systems, 35: 23371–23385.
+Wang, Y.; Wu, H.; Zhang, J.; Gao, Z.; Wang, J.; Philip, S. Y.;
+and Long, M. 2022. Predrnn: A recurrent neural network
+for spatiotemporal predictive learning. IEEE Transactions
+on Pattern Analysis and Machine Intelligence, 45(2): 2208–
+2225.
+Wen, H.; Lin, Y.; Xia, Y.; Wan, H.; Wen, Q.; Zimmer-
+mann, R.; and Liang, Y. 2023. Diffstg: Probabilistic spatio-
+temporal graph forecasting with denoising diffusion models.
+In Proceedings of the 31st ACM International Conference on
+Advances in Geographic Information Systems, 1–12.
+Wu, H.; Liang, Y.; Xiong, W.; Zhou, Z.; Huang, W.; Wang,
+S.; and Wang, K. 2024. Earthfarsser: Versatile spatio-
+temporal dynamical systems modeling in one model. In Pro-
+ceedings of the AAAI Conference on Artificial Intelligence,
+volume 38, 15906–15914.
+Wu, L.; Wang, D.; Gong, C.; Liu, X.; Xiong, Y.; Ranjan, R.;
+Krishnamoorthi, R.; Chandra, V.; and Liu, Q. 2023. Fast
+point cloud generation with straight flows. In Proceedings
+of the IEEE/CVF conference on computer vision and pattern
+recognition, 9445–9454.
+Xiong, T.; Wang, W.; He, J.; Su, R.; Wang, H.; and Hu, J.
+2024. Spatiotemporal Feature Fusion Transformer for Pre-
+cipitation Nowcasting via Feature Crossing. Remote Sens-
+ing, 16(14): 2685.
+
+
+                                                                 28547
+

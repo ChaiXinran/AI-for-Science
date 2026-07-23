@@ -221,3 +221,33 @@
   The smoke report completed with null-safe handling of thresholds that contain
   no positive events.
 - Ten model/data smoke tests and one paired-bootstrap report test passed.
+
+## 2026-07-23 — Server latent-state pilot
+
+- Completed 2048-train/512-validation, seed 2026, for radar-only, aligned PWV,
+  and displaced-PWV variants. All evaluation sample hashes matched.
+- Aligned minus radar-only: CSI@10 +0.00342, CSI@20 -0.03199, FAR@10 -0.06275,
+  FAR@20 +0.03818, and relative MAE -7.25%.
+- Aligned minus displaced: CSI@10 +0.000004, CSI@20 -0.000120, with effectively
+  identical MAE. Neither CSI bootstrap interval excluded zero.
+- The promotion gate failed. No multi-seed or full-data run is authorized for
+  this architecture. The next step is a same-checkpoint aligned-versus-shifted
+  inference intervention followed by fusion-residual sensitivity logging.
+- Completed the same-checkpoint intervention on all 512 validation windows.
+  Aligned-minus-shifted CSI was -0.000078 at 10 mm/h and +0.000026 at
+  20 mm/h; both 10,000-repeat day-cluster bootstrap intervals crossed zero.
+  Mean paired event MAE changed by 0.000036. This closes the current latent
+  fusion model as functionally insensitive to PWV.
+
+## 2026-07-23 — Conditional-information probe implementation
+
+- Added a frozen-radar latent probe with per-lead, 8x8-tile 10/20 mm/h event
+  targets for 0-1 h and 1-2 h.
+- Radar-only and radar+PWV probes have identical parameter counts (13,378 with
+  the server's `ngf=32`; 6,210 in the light-channel smoke). Same-checkpoint PWV
+  controls use spatial displacement and guaranteed different-event permutation.
+- Added disjoint fit/calibration days, fixed validation thresholds, average
+  precision, CSI/POD/FAR, and paired day-cluster bootstrap reporting.
+- Four unit tests passed. A 4-train/2-validation real-data smoke completed
+  caching, both probe fits, all four evaluations, and null-safe reporting.
+  Its metrics are pipeline evidence only.

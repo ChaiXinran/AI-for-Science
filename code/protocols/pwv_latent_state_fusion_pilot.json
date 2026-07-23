@@ -1,6 +1,6 @@
 {
   "protocol_id": "pwv_latent_state_fusion_pilot",
-  "status": "implemented_real_data_smoke_passed_ready_for_server_pilot",
+  "status": "closed_failed_same_checkpoint_pwv_sensitivity",
   "hypothesis": "Observed PWV improves 0-2 h heavy-rain prediction when encoded as an atmospheric state and fused with radar in latent space; correctly aligned PWV must outperform a train-time spatially displaced PWV control.",
   "sequence": {
     "frame_minutes": 6,

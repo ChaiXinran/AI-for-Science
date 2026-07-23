@@ -292,3 +292,57 @@ and train-time displaced-PWV models.
 **Gate:** Do not run multiple seeds or locked-test/full-data experiments unless
 aligned PWV improves CSI@10 and CSI@20 by at least 0.003 against both controls
 without FAR increasing more than 0.005 or MAE increasing more than 0.5%.
+
+## 2026-07-23 — Latent-state pilot verdict
+
+**Decision:** Do not promote the current latent-state model to multiple seeds
+or full-data training. Preserve its checkpoints for intervention diagnostics.
+
+**Evidence:** All variants evaluated the same 512 windows with identical sample
+hashes. Against radar-only, aligned PWV changed CSI@10 by +0.00342 but CSI@20
+by -0.03199. The latter day-cluster bootstrap interval was entirely negative
+[-0.04580, -0.02410]. Against the independently trained spatial-displacement
+control, aligned PWV changed CSI by only +0.000004 at 10 mm/h and -0.000120 at
+20 mm/h; both bootstrap intervals crossed zero. Aligned and displaced MAE also
+differed by less than 0.000009.
+
+**Interpretation:** The 7.25% MAE reduction versus the continued radar baseline
+cannot be attributed to geographically aligned PWV, because the displaced-PWV
+model obtained the same reduction. The fusion gate mean was nonzero, but the
+effective PWV-dependent perturbation was negligible. Checkpoint selection by
+weighted-L1 at epoch 1 also conflicts with the primary CSI@10/20 objective.
+
+**Next diagnostic:** Evaluate the same aligned checkpoint twice, using aligned
+and deterministically displaced observed PWV. This within-checkpoint
+intervention removes optimization-trajectory confounding. Do not retrain until
+prediction sensitivity and fusion-residual magnitude have been measured.
+
+**Same-checkpoint result:** The intervention confirmed functional PWV
+insensitivity. On the same 512 samples, aligned-minus-shifted CSI was
+-0.000078 at 10 mm/h and +0.000026 at 20 mm/h. The 10,000-repeat day-cluster
+bootstrap intervals were [-0.000167, +0.000006] and
+[-0.000068, +0.000164], respectively. Mean paired event MAE changed by only
+0.000036 and the largest absolute event-level MAE change was 0.000835.
+
+**Closure:** Close this latent-fusion candidate. Its nonzero gate value is not
+evidence of PWV use. Before another nowcasting architecture is built, run a
+conditional-information probe asking whether observed PWV adds predictive
+information for future 10/20 mm/h occurrence after radar history is already
+known.
+
+## 2026-07-23 — Conditional-information probe protocol
+
+**Decision:** Freeze the matched radar evolution path and generative encoder,
+then predict per-lead 10/20 mm/h occurrence on its 1/8-resolution latent grid.
+This is an information diagnostic, not the final forecasting architecture.
+
+**Fairness:** Radar-only and radar+PWV probes instantiate the same architecture
+and parameter count (13,378 parameters with the server's `ngf=32`; 6,210 in
+the light-channel local smoke). Radar-only uses a learned constant auxiliary slot.
+The PWV checkpoint is evaluated unchanged with aligned, half-domain-shifted,
+and deterministic cross-event PWV. Fit and probability-threshold calibration
+use disjoint training days; validation is untouched.
+
+**Promotion:** At least three of four horizon-threshold tasks must improve CSI
+by at least 0.003 and average precision by more than zero against radar-only
+and both same-checkpoint controls. No task may lose more than 0.003 CSI.

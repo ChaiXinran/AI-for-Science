@@ -128,3 +128,29 @@ export PILOT_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_latent_state_fusion_pilot
 export DEVICE=cuda:0 BATCH_SIZE=8 NUM_WORKERS=8 EPOCHS=10 SEED=2026
 bash code/scripts/run_latent_state_fusion_pilot.sh 2>&1 | tee "${PILOT_ROOT}/run.log"
 ```
+
+## PWV conditional-information probe
+
+The latent-state pilot is closed because its same-checkpoint forecast was
+insensitive to aligned versus shifted PWV. Before another end-to-end model is
+allowed, this diagnostic tests whether PWV contains conditional information
+after a trained radar latent is frozen.
+
+- protocol: `code/protocols/pwv_conditional_information_probe.json`
+- runner: `code/scripts/run_conditional_information_probe.sh`
+- output: `seed_2026/conditional_probe_summary.json`
+
+The radar-only and PWV probes have identical parameter counts. The aligned PWV
+checkpoint is also evaluated with spatially shifted and cross-event PWV.
+Probability thresholds are selected on held-out training days and fixed before
+validation.
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export RADAR_CHECKPOINT=/root/autodl-tmp/nowcastnet_runs/pwv_latent_state_fusion_pilot/seed_2026/checkpoints/radar_only/best_state_dict.ckpt
+export PROBE_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_conditional_information_probe
+export DEVICE=cuda:0 BATCH_SIZE=8 PROBE_BATCH_SIZE=32 NUM_WORKERS=8 EPOCHS=20 SEED=2026
+bash code/scripts/run_conditional_information_probe.sh 2>&1 | tee "${PROBE_ROOT}/run.log"
+```

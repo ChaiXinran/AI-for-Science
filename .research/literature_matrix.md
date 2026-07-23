@@ -115,3 +115,24 @@ architecture-level correction, not hyperparameter tuning.
   candidate should use two-stream latent fusion and, if a residual is retained,
   apply a single bounded correction to the final forecast rather than allowing
   twenty-step accumulation.
+
+## Parameter audit of PWV/GNSS multimodal models
+
+Parameter balance is generally not reported as a modality-by-modality quantity,
+and the reviewed papers do not support requiring equal radar and PWV branch
+sizes.
+
+| Study | Reported total capacity | PWV/GNSS-specific capacity | What is verifiable |
+|---|---:|---:|---|
+| Trentini et al. 2026, ZWD into Aurora | ~1.3B (main); ~110M (small ablation) | ~24,592 parameters for one added input/output surface variable in the 1.3B configuration; ~12,304 in the 110M configuration | Derived from the public Aurora implementation: one variable-specific `LevelPatchEmbed` kernel plus one linear patch-reconstruction head. The shared backbone is fine-tuned and no bespoke ZWD branch is added. |
+| Sun et al. 2026, STEA-Swin | Not reported in the article | Not separately identifiable | PWV, radar, DEM and time encodings enter a shared end-to-end Swin U-Net; the paper reports no per-modality parameter accounting. |
+| Liu et al. 2025, radar + GNSS-PWV TGRS | Not reported in accessible abstract/metadata | Not reported | Multi-source fusion and temporal attention are described, but the accessible sources do not expose layer widths or a parameter table. |
+| Lu et al. 2026, GRENet | Not reported in accessible main text | Not reported | A dual-stream GNSS projector and radar encoder are described; detailed layers are delegated to supporting information, without a parameter total in the accessible text. |
+| Lu et al. 2025, RSG-GAN | Not reported in accessible abstract | Not reported | GNSS ZTD and satellite information are bundled, so a GNSS-only parameter count cannot be isolated from the published abstract. |
+
+For this project, the current trainable counts are 34,932,274 radar-path
+parameters and 615,616 PWV/fusion parameters (56.7:1). This imbalance can
+confound comparisons between separately trained models, but it cannot explain
+the same-checkpoint aligned-versus-shifted invariance: that intervention holds
+all parameters fixed and directly shows that the learned predictor is
+functionally insensitive to PWV location.
