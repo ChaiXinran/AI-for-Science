@@ -1,6 +1,6 @@
 {
   "protocol_id": "pwv_signed_calibrator_pilot",
-  "status": "implemented_local_smoke_passed_ready_for_server_pilot",
+  "status": "implemented_real_data_smoke_passed_ready_for_server_pilot",
   "scientific_hypothesis": "Spatially aligned PWV state improves 0-2 h heavy-rain occurrence skill only where the frozen radar forecast indicates dynamically plausible support; temporal tendency is a secondary incremental ablation.",
   "target": {
     "field": "RAIN_2025_S",
@@ -27,7 +27,7 @@
   },
   "model": {
     "name": "PWVSignedCalibratorNowcastNet",
-    "radar_backbone": "matched NowcastNet checkpoint, frozen",
+    "radar_backbone": "retrained in-protocol NowcastNet baseline with input_length=9 and total_length=29, then frozen",
     "pwv_features": [
       "observed-period absolute mean level",
       "train-only spatial-climatology standardized anomaly",
@@ -56,6 +56,7 @@
     "initial_seeds": [2026],
     "epochs_max": 10,
     "early_stop_patience": 3,
+    "radar_baseline": "retrained under the same split, 0-2 h geometry, window budget, and seed before PWV-head training",
     "checkpoint_selection": "validation threshold-balanced loss plus preservation/FAR terms"
   },
   "promotion_gate": {

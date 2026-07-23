@@ -4,7 +4,6 @@ set -euo pipefail
 : "${DATA_ROOT:?Set DATA_ROOT to RAIN_2025_S}"
 : "${PWV_ROOT:?Set PWV_ROOT to PWV_2025_S}"
 : "${SPLIT_MANIFEST:?Set SPLIT_MANIFEST to the reviewed manifest}"
-: "${RADAR_CKPT:?Set RADAR_CKPT to the matched 0-2 h radar checkpoint}"
 : "${PILOT_ROOT:?Set PILOT_ROOT to a new signed-calibrator pilot directory}"
 
 DEVICE="${DEVICE:-cuda:0}"
@@ -21,11 +20,13 @@ SEED_ROOT="${PILOT_ROOT}/seed_${SEED}"
 PROTOCOL_ROOT="${PILOT_ROOT}/protocol"
 STAGE0_ROOT="${PROTOCOL_ROOT}/stage0"
 CLIMATOLOGY_PATH="${STAGE0_ROOT}/pwv_train_climatology.npz"
+RADAR_DIR="${SEED_ROOT}/checkpoints/radar"
+RADAR_CKPT="${RADAR_DIR}/best_state_dict.ckpt"
 STATIC_DIR="${SEED_ROOT}/checkpoints/static_real"
 SPATIAL_DIR="${SEED_ROOT}/checkpoints/spatial_control"
 TENDENCY_DIR="${SEED_ROOT}/checkpoints/tendency_real"
 
-mkdir -p "${PROTOCOL_ROOT}" "${STATIC_DIR}" "${SPATIAL_DIR}" "${TENDENCY_DIR}"
+mkdir -p "${PROTOCOL_ROOT}" "${RADAR_DIR}" "${STATIC_DIR}" "${SPATIAL_DIR}" "${TENDENCY_DIR}"
 cp code/protocols/pwv_signed_calibrator_pilot.json "${PROTOCOL_ROOT}/"
 cp "${SPLIT_MANIFEST}" "${PROTOCOL_ROOT}/split_manifest.json"
 
@@ -40,8 +41,25 @@ if [[ ! -f "${CLIMATOLOGY_PATH}" ]]; then
     --feature_windows_per_event 6
 fi
 
-[[ -f "${RADAR_CKPT}" ]] || { echo "Missing ${RADAR_CKPT}"; exit 1; }
 [[ -f "${CLIMATOLOGY_PATH}" ]] || { echo "Missing ${CLIMATOLOGY_PATH}"; exit 1; }
+
+if [[ "${RETEST_ONLY}" != "1" ]]; then
+  python -u code/train/radar.py \
+    --data_root "${DATA_ROOT}" --split_manifest "${SPLIT_MANIFEST}" \
+    --require_contiguous --save_dir "${RADAR_DIR}" \
+    --readme_ckpt "${RADAR_DIR}/model.ckpt" --device "${DEVICE}" \
+    --input_length 9 --total_length 29 --img_height 96 --img_width 96 \
+    --ngf 32 --intensity_scale 35 --batch_size "${BATCH_SIZE}" \
+    --epochs "${EPOCHS}" --num_workers "${NUM_WORKERS}" --seed "${SEED}" \
+    --max_train_samples "${MAX_TRAIN_SAMPLES}" \
+    --max_val_samples "${MAX_VAL_SAMPLES}" --max_samples_strategy uniform
+fi
+
+[[ -f "${RADAR_CKPT}" ]] || {
+  echo "Missing matched 0-2 h radar checkpoint: ${RADAR_CKPT}"
+  echo "Do not reuse the old total_length=39 (0-3 h) radar checkpoint."
+  exit 1
+}
 
 train_head() {
   local save_dir="$1"

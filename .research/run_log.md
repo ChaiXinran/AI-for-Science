@@ -180,3 +180,23 @@
 - Local NVIDIA hardware is visible, but the `nowcast` environment contains
   CPU-only PyTorch 2.13.0. No environment mutation was made; the scientific
   pilot is assigned to the server GPU.
+## 2026-07-23 — Signed calibrator real-data smoke and server checkpoint diagnosis
+
+- The first server attempt completed Stage 0 but stopped before signed-head
+  training with 34 incompatible radar-backbone tensors.
+- Root cause: the supplied `pwv_birth_growth_v1_radar_gate` checkpoint used
+  `input_length=9,total_length=39` (0--3 h), while the signed protocol requires
+  `input_length=9,total_length=29` (0--2 h). The output geometry must not be
+  force-loaded.
+- Updated `run_signed_calibrator_pilot.sh` to retrain the matched 0--2 h radar
+  baseline under the same 2048/512 budget before freezing it and training the
+  PWV heads.
+- Ran a real-data smoke on the local `DATA_2025_S` copy: two train and two
+  validation windows, one radar epoch, one signed-head epoch, and real/null
+  evaluation.
+- The signed model loaded 670 radar tensors with zero missing required tensors;
+  the frozen head had 40,674 trainable parameters. Both real and null
+  evaluations completed and emitted `metrics.json` plus paired
+  `eventwise_records.json`.
+- The two-window metrics are pipeline evidence only. They contain no 20 mm/h
+  positives and cannot support a CSI claim.

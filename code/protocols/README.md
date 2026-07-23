@@ -80,11 +80,13 @@ successor is goal-named rather than version-numbered:
 - runner: `code/scripts/run_signed_calibrator_pilot.sh`
 - model: `PWVSignedCalibratorNowcastNet`
 
-The runner does not retrain the radar backbone. It requires the matched 0--2 h
-radar checkpoint, runs the train-only PWV climatology/support audit once, then
-trains static, spatial-control, and temporal-tendency heads under the same
-2048/512 budget. It evaluates null, level-only, reverse, and shift controls
-from the static checkpoint and produces paired day-cluster bootstrap deltas.
+The runner first retrains a matched radar baseline with the same 9-frame input,
+20-frame (0--2 h) output, split, and 2048/512 budget. It then runs the
+train-only PWV climatology/support audit once and trains static,
+spatial-control, and temporal-tendency heads. It evaluates null, level-only,
+reverse, and shift controls from the static checkpoint and produces paired
+day-cluster bootstrap deltas. A 0--3 h radar checkpoint is not shape-compatible
+and must not be reused.
 
 Server example:
 
@@ -92,7 +94,6 @@ Server example:
 export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
 export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
 export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
-export RADAR_CKPT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_radar_gate/checkpoints/radar/best_state_dict.ckpt
 export PILOT_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_signed_calibrator_pilot
 export DEVICE=cuda:0 BATCH_SIZE=8 NUM_WORKERS=8 EPOCHS=10 SEED=2026
 bash code/scripts/run_signed_calibrator_pilot.sh 2>&1 | tee "${PILOT_ROOT}/run.log"

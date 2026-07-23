@@ -1,0 +1,31 @@
+{
+  "epoch": 1,
+  "selection_loss": 1.2954066591337323,
+  "losses": {
+    "total": 1.2954066591337323,
+    "calibration": 1.2522669180684716,
+    "forecast": 0.4313737079501152,
+    "false_alarm": 2.3504362616222352e-05,
+    "signed_contribution": 1.04479357787568e-06,
+    "threshold_10": 2.504533836136943,
+    "threshold_20": 0.0
+  },
+  "event_metrics": {
+    "10": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 61,
+      "csi": 0.0,
+      "pod": 0.0,
+      "far": null
+    },
+    "20": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "csi": null,
+      "pod": null,
+      "far": null
+    }
+  }
+}
