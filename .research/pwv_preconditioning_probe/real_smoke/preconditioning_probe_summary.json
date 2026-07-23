@@ -1,0 +1,2099 @@
+{
+  "protocol": "pwv_causal_preconditioning_probe",
+  "pwv_history_minutes": 180.0,
+  "pwv_anchor_minutes": 30.0,
+  "causality": "PWV anchors are aligned to native cadence and are never later than the final observed radar timestamp.",
+  "train_samples": 4,
+  "validation_samples": 2,
+  "fit_samples": 3,
+  "calibration_samples": 1,
+  "probe_parameters": {
+    "radar": 786,
+    "short": 786,
+    "long": 786
+  },
+  "frozen_radar_parameters": 9774813,
+  "climatology": {
+    "source": "fit days only",
+    "mean_mm": 7.639091491699219,
+    "spatial_std_mm": 7.382684230804443
+  },
+  "strata": {
+    "all": "all validation tiles",
+    "weak_echo_nondecreasing": "last observed radar tile is 1 mm/h to below the task threshold and is not lower than the mean of the first three observed frames",
+    "radar_quiet": "observed radar-history tile maximum is below 1 mm/h; diagnostic only"
+  },
+  "calibration_thresholds": {
+    "radar": {
+      "0h-1h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.06388888888888888
+        },
+        "20": {
+          "probability_threshold": 0.56,
+          "calibration_csi": 0.006258692628650904
+        }
+      },
+      "1h-2h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        },
+        "20": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        }
+      }
+    },
+    "short": {
+      "0h-1h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.06388888888888888
+        },
+        "20": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.00625
+        }
+      },
+      "1h-2h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        },
+        "20": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        }
+      }
+    },
+    "long": {
+      "0h-1h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.06388888888888888
+        },
+        "20": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.00625
+        }
+      },
+      "1h-2h": {
+        "10": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        },
+        "20": {
+          "probability_threshold": 0.0,
+          "calibration_csi": 0.0
+        }
+      }
+    }
+  },
+  "variants": {
+    "radar_only": {
+      "control": "learned_constant",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.56,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.56,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.56,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    },
+    "pwv_short_interpolated": {
+      "control": "real",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_causal": {
+      "control": "real",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_spatial_shift": {
+      "control": "spatial_shift",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_cross_event": {
+      "control": "cross_event",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_tendency_reversed": {
+      "control": "tendency_reversed",
+      "strata": {
+        "all": {
+          "0h-1h": {
+            "10": {
+              "hit": 7,
+              "miss": 0,
+              "false_alarm": 2873,
+              "correct_negative": 0,
+              "csi": 0.0024305555555555556,
+              "pod": 1.0,
+              "far": 0.9975694444444444,
+              "average_precision": 0.0024305555555555556,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 7
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 21,
+              "miss": 0,
+              "false_alarm": 2859,
+              "correct_negative": 0,
+              "csi": 0.007291666666666667,
+              "pod": 1.0,
+              "far": 0.9927083333333333,
+              "average_precision": 0.007291666666666667,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 21
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2880,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2880,
+              "positive_cells": 0
+            }
+          }
+        },
+        "weak_echo_nondecreasing": {
+          "0h-1h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 20,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 20,
+              "positive_cells": 0
+            }
+          }
+        },
+        "radar_quiet": {
+          "0h-1h": {
+            "10": {
+              "hit": 3,
+              "miss": 0,
+              "false_alarm": 2607,
+              "correct_negative": 0,
+              "csi": 0.0011494252873563218,
+              "pod": 1.0,
+              "far": 0.9988505747126437,
+              "average_precision": 0.0011494252873563218,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 3
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          },
+          "1h-2h": {
+            "10": {
+              "hit": 9,
+              "miss": 0,
+              "false_alarm": 2601,
+              "correct_negative": 0,
+              "csi": 0.0034482758620689655,
+              "pod": 1.0,
+              "far": 0.996551724137931,
+              "average_precision": 0.0034482758620689655,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 9
+            },
+            "20": {
+              "hit": 0,
+              "miss": 0,
+              "false_alarm": 2610,
+              "correct_negative": 0,
+              "csi": 0.0,
+              "pod": null,
+              "far": 1.0,
+              "average_precision": 0.0,
+              "probability_threshold": 0.0,
+              "candidate_cells": 2610,
+              "positive_cells": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "paired_comparisons": {
+    "pwv_long_causal_minus_radar_only": {
+      "all": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "weak_echo_nondecreasing": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "radar_quiet": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_causal_minus_pwv_short_interpolated": {
+      "all": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "weak_echo_nondecreasing": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "radar_quiet": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_causal_minus_pwv_long_spatial_shift": {
+      "all": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "weak_echo_nondecreasing": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "radar_quiet": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_causal_minus_pwv_long_cross_event": {
+      "all": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "weak_echo_nondecreasing": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "radar_quiet": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pwv_long_causal_minus_pwv_long_tendency_reversed": {
+      "all": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "weak_echo_nondecreasing": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 35,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "radar_quiet": {
+        "0h-1h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        },
+        "1h-2h": {
+          "10": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "20": {
+            "csi_delta": 0.0,
+            "average_precision_delta": 0.0,
+            "day_cluster_bootstrap_csi_delta": {
+              "n_cases": 2,
+              "repetitions": 50,
+              "mean": 0.0,
+              "ci95": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "gate": {
+    "primary_stratum": "weak_echo_nondecreasing",
+    "minimum_csi_delta": 0.003,
+    "required_passing_tasks": 3,
+    "passing_tasks": 0,
+    "all_window_safety_pass": true,
+    "point_estimate_pass": false,
+    "tasks": {
+      "0h-1h::10": {
+        "pass": false,
+        "references": {
+          "radar_only": false,
+          "pwv_short_interpolated": false,
+          "pwv_long_spatial_shift": false,
+          "pwv_long_cross_event": false
+        }
+      },
+      "0h-1h::20": {
+        "pass": false,
+        "references": {
+          "radar_only": false,
+          "pwv_short_interpolated": false,
+          "pwv_long_spatial_shift": false,
+          "pwv_long_cross_event": false
+        }
+      },
+      "1h-2h::10": {
+        "pass": false,
+        "references": {
+          "radar_only": false,
+          "pwv_short_interpolated": false,
+          "pwv_long_spatial_shift": false,
+          "pwv_long_cross_event": false
+        }
+      },
+      "1h-2h::20": {
+        "pass": false,
+        "references": {
+          "radar_only": false,
+          "pwv_short_interpolated": false,
+          "pwv_long_spatial_shift": false,
+          "pwv_long_cross_event": false
+        }
+      }
+    }
+  },
+  "interpretation": "A pass supports multi-hour PWV preconditioning for a restricted adapter. It is not final dense-forecast evidence."
+}

@@ -346,3 +346,57 @@ use disjoint training days; validation is untouched.
 **Promotion:** At least three of four horizon-threshold tasks must improve CSI
 by at least 0.003 and average precision by more than zero against radar-only
 and both same-checkpoint controls. No task may lose more than 0.003 CSI.
+
+## 2026-07-23 - Conditional-information probe verdict
+
+**Decision:** Do not promote the present gridded-PWV representation to a
+restricted joint-adaptation, multi-seed, or full-data experiment. The
+pre-registered gate failed on all four horizon-threshold tasks.
+
+**Integrity checks:** The server run used 2,048 training and 512 untouched
+validation windows, with 1,628 fit and 420 calibration samples from disjoint
+training days. Radar-only and radar+PWV probes each had 13,378 trainable
+parameters over the same 35,035,965 frozen radar parameters. Both optimizations
+converged; final fit losses were 0.0670 and 0.0626, respectively.
+
+**Primary evidence:** Aligned PWV minus radar-only CSI was -0.02139,
+-0.02563, -0.00002, and -0.03469 for 0--1 h at 10/20 mm/h and 1--2 h at
+10/20 mm/h. Average-precision deltas were also negative in all four tasks.
+The day-cluster bootstrap intervals excluded zero on the harmful side for
+0--1 h at 10 mm/h and 1--2 h at 20 mm/h.
+
+**Control interpretation:** At 1--2 h, aligned PWV beat spatially shifted PWV
+by +0.02279 CSI at 10 mm/h (95% day-cluster interval
+[+0.00954, +0.03544]) and +0.01078 at 20 mm/h, but it still did not beat
+radar-only. Cross-event controls were not consistently worse. This is evidence
+of some location-sensitive PWV response, not evidence of incremental forecast
+skill after radar history is known.
+
+**Next gate:** Stop architecture search temporarily. Audit geospatial
+co-registration, PWV physical scaling/inversion, temporal cadence, and
+event-regime heterogeneity. Only reopen model development if a pre-specified
+radar-observable initiation/rapid-growth subgroup or a corrected physical PWV
+representation shows reproducible conditional information beyond radar-only.
+
+**Temporal-audit refinement:** Local data inspection confirms complete
+radar/PWV filename pairing and matching 70x66 raster geometry. The six-minute
+PWV frames are extremely autocorrelated and are largely reconstructable from
+30-minute endpoints. Therefore, failure of the nine-frame PWV probe does not
+fully test the physically better hypothesis of multi-hour moisture
+preconditioning. Permit one further matched-capacity information diagnostic:
+retain the existing nine-frame radar history, but encode native-cadence PWV anchors over
+approximately three hours as level, train-only climatological anomaly,
+multi-hour tendency, and spatial gradient. Evaluate it first on all windows and
+on a pre-specified radar-observable initiation/rapid-growth stratum. This is a
+data-representation test, not permission for unrestricted architecture search.
+
+**Locked successor implementation:** Name the hypothesis rather than assigning
+a version number: `pwv_causal_preconditioning_probe`. Use seven 30-minute
+anchors over three hours, ending no later than the radar issue time. The
+primary mechanism stratum is defined exclusively from observed radar:
+1 mm/h <= last tile maximum < task threshold and last tile maximum no lower
+than the first-three-frame mean. The stratum has 885--2,955 validation positive
+tile-leads per task in the locked 512-window development sample. Promotion
+requires at least three of four primary-stratum tasks to beat radar-only,
+short-interpolated PWV, spatial shift, and cross-event PWV by >=0.003 CSI with
+positive AP delta, while losing no more than 0.003 all-window CSI to radar-only.

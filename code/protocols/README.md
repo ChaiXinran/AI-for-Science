@@ -154,3 +154,30 @@ export PROBE_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_conditional_information_p
 export DEVICE=cuda:0 BATCH_SIZE=8 PROBE_BATCH_SIZE=32 NUM_WORKERS=8 EPOCHS=20 SEED=2026
 bash code/scripts/run_conditional_information_probe.sh 2>&1 | tee "${PROBE_ROOT}/run.log"
 ```
+
+## Causal PWV preconditioning probe
+
+The six-minute PWV rasters are predominantly interpolated from an approximately
+30-minute product. This successor therefore keeps the existing nine-frame
+radar input but reads seven causal PWV anchors over three hours. The latest PWV
+anchor is always at or before the final observed radar timestamp.
+
+- protocol: `code/protocols/pwv_causal_preconditioning_probe.json`
+- runner: `code/scripts/run_pwv_preconditioning_probe.sh`
+- output: `seed_2026/preconditioning_probe_summary.json`
+
+It trains parameter-matched radar-only, short-interpolated-PWV, and
+causal-long-PWV probes. The long-PWV checkpoint is additionally tested with
+spatial shift, cross-event replacement, and tendency reversal. Metrics are
+reported for all tiles, a radar-observable weak-echo/nondecreasing stratum, and
+a diagnostic radar-quiet stratum.
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export RADAR_CHECKPOINT=/root/autodl-tmp/nowcastnet_runs/pwv_latent_state_fusion_pilot/seed_2026/checkpoints/radar_only/best_state_dict.ckpt
+export PROBE_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_causal_preconditioning_probe
+export DEVICE=cuda:0 BATCH_SIZE=8 PROBE_BATCH_SIZE=32 NUM_WORKERS=8 EPOCHS=20 SEED=2026
+bash code/scripts/run_pwv_preconditioning_probe.sh 2>&1 | tee "${PROBE_ROOT}/run.log"
+```

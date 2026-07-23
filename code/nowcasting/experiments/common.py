@@ -88,6 +88,15 @@ def make_png_dataloader(args, split, max_samples=None, shuffle=None, drop_last=N
                 "pwv_pixel_max": getattr(args, "pwv_pixel_max", 255.0),
                 "pwv_invert": getattr(args, "pwv_invert", False),
                 "strict_pwv": getattr(args, "strict_pwv", False),
+                "pwv_history_minutes": getattr(
+                    args, "pwv_history_minutes", 0.0
+                ),
+                "pwv_anchor_minutes": getattr(
+                    args, "pwv_anchor_minutes", 0.0
+                ),
+                "return_pwv_sequence": not getattr(
+                    args, "no_pwv_sequence", False
+                ),
             }
         )
     dataset = PngSequenceDataset(**dataset_kwargs)

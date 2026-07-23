@@ -44,6 +44,9 @@ class PngSequenceDataset(Dataset):
         frame_minutes=6.0,
         require_contiguous=False,
         strict_pwv=False,
+        pwv_history_minutes=0.0,
+        pwv_anchor_minutes=0.0,
+        return_pwv_sequence=True,
     ):
         self.data_root = Path(data_root)
         self.pwv_root = Path(pwv_root) if pwv_root else None
@@ -64,21 +67,56 @@ class PngSequenceDataset(Dataset):
         self.frame_minutes = float(frame_minutes)
         self.require_contiguous = bool(require_contiguous)
         self.strict_pwv = bool(strict_pwv)
+        self.pwv_history_minutes = float(pwv_history_minutes)
+        self.pwv_anchor_minutes = float(pwv_anchor_minutes)
+        self.return_pwv_sequence = bool(return_pwv_sequence)
         self.max_samples_strategy = max_samples_strategy
         if self.pixel_max <= self.pixel_min:
             raise ValueError("pixel_max must be greater than pixel_min.")
         if self.pwv_pixel_max <= self.pwv_pixel_min:
             raise ValueError("pwv_pixel_max must be greater than pwv_pixel_min.")
+        if self.pwv_history_minutes < 0:
+            raise ValueError("pwv_history_minutes must be non-negative.")
+        if self.pwv_history_minutes > 0 and self.pwv_anchor_minutes <= 0:
+            raise ValueError(
+                "pwv_anchor_minutes must be positive when PWV history is requested."
+            )
+        if (
+            self.pwv_history_minutes > 0
+            and abs(
+                self.pwv_history_minutes / self.pwv_anchor_minutes
+                - round(self.pwv_history_minutes / self.pwv_anchor_minutes)
+            )
+            > 1e-6
+        ):
+            raise ValueError(
+                "pwv_history_minutes must be divisible by pwv_anchor_minutes."
+            )
 
         if img_height % 32 != 0 or img_width % 32 != 0:
             raise ValueError("img_height and img_width must be multiples of 32 for NowcastNet.")
         if not self.data_root.exists():
             raise FileNotFoundError("data_root does not exist: {}".format(self.data_root))
+        if self.pwv_root is not None and not self.pwv_root.exists():
+            raise FileNotFoundError("pwv_root does not exist: {}".format(self.pwv_root))
+
+        self._pwv_by_timestamp = {}
+        if self.pwv_root is not None and self.pwv_history_minutes > 0:
+            for path in self.pwv_root.rglob("*.png"):
+                stamp = self._timestamp(path)
+                if stamp is not None:
+                    self._pwv_by_timestamp[stamp] = path
 
         day_dirs = self._discover_day_dirs()
         if self.split_manifest is not None:
             day_dirs = self._day_dirs_from_manifest(day_dirs, split)
         windows = self._build_windows(stride, day_dirs)
+        if self.pwv_history_minutes > 0:
+            windows = [
+                window
+                for window in windows
+                if self._has_complete_pwv_history(window)
+            ]
         if not windows:
             raise ValueError("No {}-frame windows found under {}".format(total_length, self.data_root))
 
@@ -177,14 +215,23 @@ class PngSequenceDataset(Dataset):
     def provenance(self):
         records = []
         for window in self.windows:
-            records.append(
-                {
-                    "case_name": window[0].parent.name,
-                    "start_file": window[0].name,
-                    "end_file": window[-1].name,
-                    "relative_dir": window[0].parent.relative_to(self.data_root).as_posix(),
-                }
-            )
+            record = {
+                "case_name": window[0].parent.name,
+                "start_file": window[0].name,
+                "end_file": window[-1].name,
+                "relative_dir": window[0].parent.relative_to(
+                    self.data_root
+                ).as_posix(),
+            }
+            if self.pwv_history_minutes > 0:
+                history_paths = self._pwv_history_paths(window)
+                record.update(
+                    {
+                        "pwv_history_start_file": history_paths[0].name,
+                        "pwv_history_end_file": history_paths[-1].name,
+                    }
+                )
+            records.append(record)
         payload = json.dumps(records, sort_keys=True, ensure_ascii=False).encode("utf-8")
         return {
             "split": self.split,
@@ -193,6 +240,9 @@ class PngSequenceDataset(Dataset):
             "frame_minutes": self.frame_minutes,
             "require_contiguous": self.require_contiguous,
             "max_samples_strategy": self.max_samples_strategy,
+            "pwv_history_minutes": self.pwv_history_minutes,
+            "pwv_anchor_minutes": self.pwv_anchor_minutes,
+            "return_pwv_sequence": self.return_pwv_sequence,
             "samples": len(records),
             "sample_sha256": hashlib.sha256(payload).hexdigest(),
             "records": records,
@@ -248,6 +298,43 @@ class PngSequenceDataset(Dataset):
             self.pwv_invert,
         )
 
+    def _pwv_history_paths(self, window):
+        issue_time = self._timestamp(window[self.input_length - 1])
+        if issue_time is None:
+            return []
+        midnight = issue_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        elapsed_minutes = int((issue_time - midnight).total_seconds() // 60)
+        anchor_minutes = int(round(self.pwv_anchor_minutes))
+        latest_anchor = midnight + timedelta(
+            minutes=(elapsed_minutes // anchor_minutes) * anchor_minutes
+        )
+        anchor_count = int(
+            round(self.pwv_history_minutes / self.pwv_anchor_minutes)
+        ) + 1
+        stamps = [
+            latest_anchor
+            - timedelta(minutes=anchor_minutes * offset)
+            for offset in reversed(range(anchor_count))
+        ]
+        return [self._pwv_by_timestamp.get(stamp) for stamp in stamps]
+
+    def _has_complete_pwv_history(self, window):
+        paths = self._pwv_history_paths(window)
+        return bool(paths) and all(path is not None for path in paths)
+
+    def _read_pwv_path(self, path):
+        if path is None or not path.exists():
+            if self.strict_pwv:
+                raise FileNotFoundError("Missing causal PWV history anchor.")
+            return np.zeros((self.img_height, self.img_width), dtype="float32")
+        return self._read_frame(
+            path,
+            self.pwv_intensity_scale,
+            self.pwv_pixel_min,
+            self.pwv_pixel_max,
+            self.pwv_invert,
+        )
+
     def __len__(self):
         return len(self.windows)
 
@@ -269,6 +356,19 @@ class PngSequenceDataset(Dataset):
             ),
         }
         if self.pwv_root is not None:
-            pwv_frames = [self._read_pwv_frame(path) for path in self.windows[index]]
-            sample["pwv_frames"] = torch.from_numpy(np.stack(pwv_frames, axis=0).astype("float32"))
+            if self.return_pwv_sequence:
+                pwv_frames = [
+                    self._read_pwv_frame(path) for path in self.windows[index]
+                ]
+                sample["pwv_frames"] = torch.from_numpy(
+                    np.stack(pwv_frames, axis=0).astype("float32")
+                )
+            if self.pwv_history_minutes > 0:
+                history_paths = self._pwv_history_paths(self.windows[index])
+                history = [self._read_pwv_path(path) for path in history_paths]
+                sample["pwv_history_frames"] = torch.from_numpy(
+                    np.stack(history, axis=0).astype("float32")
+                )
+                sample["pwv_history_start_file"] = history_paths[0].name
+                sample["pwv_history_end_file"] = history_paths[-1].name
         return sample

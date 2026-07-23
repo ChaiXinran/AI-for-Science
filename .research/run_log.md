@@ -251,3 +251,59 @@
 - Four unit tests passed. A 4-train/2-validation real-data smoke completed
   caching, both probe fits, all four evaluations, and null-safe reporting.
   Its metrics are pipeline evidence only.
+
+## 2026-07-23 - Server conditional-information probe
+
+- Completed the 2,048-train/512-validation server run with 1,628 fit and 420
+  calibration samples. Both 13,378-parameter probes converged without NaNs;
+  final fit losses were 0.067017 (radar-only) and 0.062594 (aligned PWV).
+- Aligned PWV minus radar-only CSI:
+  - 0--1 h, 10 mm/h: -0.021390, bootstrap 95% CI
+    [-0.041234, -0.000155];
+  - 0--1 h, 20 mm/h: -0.025629, CI [-0.062962, +0.005709];
+  - 1--2 h, 10 mm/h: -0.000020, CI [-0.013197, +0.012099];
+  - 1--2 h, 20 mm/h: -0.034686, CI [-0.066808, -0.007011].
+- Average precision was lower than radar-only in all four tasks. Aligned PWV
+  did beat the spatial-shift control at 1--2 h, especially at 10 mm/h
+  (+0.022790 CSI; CI [+0.009542, +0.035437]), but did not consistently beat
+  the cross-event control and never beat radar-only.
+- Promotion gate: 0/4 tasks passed; safety failed. No multi-seed, full-data, or
+  restricted joint-adaptation run is scheduled for this representation.
+
+## 2026-07-23 - Local PWV interpolation audit
+
+- Verified 29,511/29,511 radar PNGs have a same-relative-path PWV PNG. The PWV
+  directory contains five additional terminal frames that are not consumed by
+  radar windows. Both modalities use the same raw 70x66 raster shape.
+- Across 1,181 sampled 30-minute blocks, adjacent six-minute PWV fields had
+  mean pixelwise correlation 0.99947 and mean absolute change 0.1234 mm.
+  Mean 30-minute endpoint change was only 0.6062 mm.
+- Intermediate fields were reconstructable from their 30-minute endpoints
+  with mean absolute residual 0.0858 mm. In a separate endpoint check, rounding
+  a linear 30-minute interpolation reproduced 80.5% of pixels exactly, versus
+  44.1% for a 60-minute interpolation and 29.5% for a 120-minute interpolation.
+- Interpretation: the nominal six-minute PWV sequence is predominantly a
+  quantized interpolation of a roughly 30-minute product. It should be modeled
+  as a slowly varying environmental state, not as nine independent video
+  observations. The next information probe should use native-cadence anchors
+  over a longer preconditioning window before any new fusion architecture.
+
+## 2026-07-23 - Causal PWV preconditioning probe implementation
+
+- Added a causal three-hour PWV reader using seven 30-minute anchors. Anchors
+  are aligned to midnight cadence and the latest anchor is never later than the
+  final observed radar timestamp. This avoids possible future-endpoint leakage
+  from the six-minute interpolated PWV images.
+- Added parameter-matched radar-only, old short-interpolated-PWV, and
+  causal-long-PWV probes. The long checkpoint is also evaluated with spatial
+  shift, guaranteed cross-event replacement, and tendency-sign reversal.
+- Added input-only evaluation strata: all tiles, weak-echo/nondecreasing tiles
+  (primary), and radar-quiet tiles (diagnostic). No stratum uses future radar or
+  the prediction target to select candidates.
+- Six conditional-probe unit tests and the full 16-test model/data smoke suite
+  passed. A 4-train/2-validation real-data CLI smoke completed caching, three
+  fits, calibration, six variants, stratified metrics, and paired bootstrap.
+- A separate 512-window validation support audit found 885--2,955 positive
+  tile-leads in the primary weak-echo/nondecreasing stratum across the four
+  horizon-threshold tasks, spanning 16--17 positive days. The primary stratum
+  therefore has adequate support for the 2,048/512 server pilot.

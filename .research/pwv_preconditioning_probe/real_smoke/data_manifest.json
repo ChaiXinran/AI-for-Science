@@ -1,0 +1,68 @@
+{
+  "train": {
+    "split": "train",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\local_split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "pwv_history_minutes": 180.0,
+    "pwv_anchor_minutes": 30.0,
+    "return_pwv_sequence": true,
+    "samples": 4,
+    "sample_sha256": "0128b131897730a92afdd84a4914c35932667f186c6ab18192c8819b4b2b0be4",
+    "records": [
+      {
+        "case_name": "20250501",
+        "start_file": "2025-05-01-02-12-00.png",
+        "end_file": "2025-05-01-05-00-00.png",
+        "relative_dir": "202505/20250501"
+      },
+      {
+        "case_name": "20250528",
+        "start_file": "2025-05-28-15-36-00.png",
+        "end_file": "2025-05-28-18-24-00.png",
+        "relative_dir": "202505/20250528"
+      },
+      {
+        "case_name": "20250625",
+        "start_file": "2025-06-25-07-42-00.png",
+        "end_file": "2025-06-25-10-30-00.png",
+        "relative_dir": "202506/20250625"
+      },
+      {
+        "case_name": "20250722",
+        "start_file": "2025-07-22-21-06-00.png",
+        "end_file": "2025-07-22-23-54-00.png",
+        "relative_dir": "202507/20250722"
+      }
+    ]
+  },
+  "val": {
+    "split": "val",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\local_split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "pwv_history_minutes": 180.0,
+    "pwv_anchor_minutes": 30.0,
+    "return_pwv_sequence": true,
+    "samples": 2,
+    "sample_sha256": "14f8b83c4ed206de7c00ef1c7999b4fa6a73bd91dc9c5de3d1546b2d3404decb",
+    "records": [
+      {
+        "case_name": "20250723",
+        "start_file": "2025-07-23-00-00-00.png",
+        "end_file": "2025-07-23-02-48-00.png",
+        "relative_dir": "202507/20250723"
+      },
+      {
+        "case_name": "20250814",
+        "start_file": "2025-08-14-21-06-00.png",
+        "end_file": "2025-08-14-23-54-00.png",
+        "relative_dir": "202508/20250814"
+      }
+    ]
+  }
+}

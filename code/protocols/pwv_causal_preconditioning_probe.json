@@ -1,0 +1,57 @@
+{
+  "protocol_id": "pwv_causal_preconditioning_probe",
+  "status": "implemented_real_data_smoke_passed_ready_for_server_pilot",
+  "question": "Does a causal three-hour PWV environmental history add information beyond radar for 0-2 h precipitation, especially in radar-observable weak-echo growth regimes?",
+  "role": "representation gate before any new PWV fusion architecture",
+  "inputs": {
+    "radar": "existing nine-frame six-minute history",
+    "pwv_primary": "three hours of 30-minute anchors aligned at or before the final observed radar time",
+    "pwv_short_comparator": "existing nine-frame interpolated representation; diagnostic comparator only because interpolation may use a future native endpoint",
+    "causality": "the primary PWV branch never reads an anchor later than the forecast issue time"
+  },
+  "pwv_primary_features": [
+    "latest causal native-cadence level",
+    "three-hour mean",
+    "three-hour standard deviation",
+    "three-hour tendency",
+    "fit-day climatological spatial anomaly",
+    "latest spatial gradient"
+  ],
+  "frozen_radar": {
+    "source": "matched 0-2 h NowcastNet checkpoint",
+    "features": "1/8-resolution generative radar latent conditioned on deterministic evolution",
+    "trainable": false
+  },
+  "probe": {
+    "target": "per-lead 8x8-tile occurrence at 10 and 20 mm/h",
+    "horizons": ["0-1h", "1-2h"],
+    "parameter_matching": "radar-only, short-PWV, and causal-long-PWV probes instantiate the identical architecture and parameter count",
+    "threshold_selection": "fit and calibration days are disjoint inside the training split; thresholds are frozen before validation"
+  },
+  "strata": {
+    "all": "all validation tiles",
+    "weak_echo_nondecreasing": "last observed radar tile is at least 1 mm/h but below the task threshold and is not lower than the first-three-frame mean",
+    "radar_quiet": "observed radar-history tile maximum is below 1 mm/h; diagnostic only",
+    "future_information": "no stratum uses future radar or target values"
+  },
+  "controls": {
+    "radar_only": "matched probe with learned constant modality slot",
+    "pwv_short_interpolated": "separately trained old short-history representation",
+    "pwv_long_spatial_shift": "same causal-long checkpoint with half-domain latent shift",
+    "pwv_long_cross_event": "same causal-long checkpoint with deterministic different-event PWV",
+    "pwv_long_tendency_reversed": "same causal-long checkpoint with only the tendency feature sign reversed"
+  },
+  "development_budget": {
+    "train_windows": 2048,
+    "validation_windows": 512,
+    "seed": 2026,
+    "epochs": 20
+  },
+  "promotion_rule": {
+    "primary_stratum": "weak_echo_nondecreasing",
+    "minimum_absolute_csi_delta": 0.003,
+    "required": "causal-long PWV must improve CSI by at least 0.003 and average precision by more than zero over radar-only, short interpolated PWV, spatial shift, and cross-event PWV in at least three of four horizon-threshold tasks",
+    "safety": "causal-long PWV may not lose more than 0.003 all-window CSI against radar-only in any task",
+    "note": "A pass justifies a restricted preconditioning adapter; it is not final dense-forecast evidence."
+  }
+}

@@ -286,7 +286,15 @@ def positive_weights(target, indices):
     return (negatives / positives.clamp_min(1.0)).clamp(1.0, 100.0)
 
 
-def train_probe(model, cache, fit_indices, use_pwv, args, label):
+def train_probe(
+    model,
+    cache,
+    fit_indices,
+    use_pwv,
+    args,
+    label,
+    feature_key="pwv",
+):
     model.to(args.device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -306,7 +314,7 @@ def train_probe(model, cache, fit_indices, use_pwv, args, label):
             args.seed + epoch,
         ):
             radar = cache["radar"][indices].float().to(args.device)
-            pwv = cache["pwv"][indices].float().to(args.device)
+            pwv = cache[feature_key][indices].float().to(args.device)
             target = cache["target"][indices].float().to(args.device)
             optimizer.zero_grad(set_to_none=True)
             logits = model(radar, pwv, use_pwv=use_pwv)
@@ -370,7 +378,14 @@ def _curve_from_histogram(positive, negative):
 
 
 @torch.no_grad()
-def predict(model, cache, use_pwv, args, control="real"):
+def predict(
+    model,
+    cache,
+    use_pwv,
+    args,
+    control="real",
+    feature_key="pwv",
+):
     model.to(args.device).eval()
     outputs = []
     count = len(cache["radar"])
@@ -381,9 +396,9 @@ def predict(model, cache, use_pwv, args, control="real"):
     ):
         radar = cache["radar"][indices].float().to(args.device)
         if control == "cross_event":
-            pwv = cache["pwv"][cross_event[indices]].float().to(args.device)
+            pwv = cache[feature_key][cross_event[indices]].float().to(args.device)
         else:
-            pwv = cache["pwv"][indices].float().to(args.device)
+            pwv = cache[feature_key][indices].float().to(args.device)
         if control == "spatial_shift":
             pwv = torch.roll(
                 pwv,
@@ -396,12 +411,26 @@ def predict(model, cache, use_pwv, args, control="real"):
     return torch.cat(outputs)
 
 
-def calibrate_thresholds(model, cache, indices, use_pwv, thresholds, args):
+def calibrate_thresholds(
+    model,
+    cache,
+    indices,
+    use_pwv,
+    thresholds,
+    args,
+    feature_key="pwv",
+):
     subset = {
         key: value[indices] if torch.is_tensor(value) else [value[i] for i in indices]
         for key, value in cache.items()
     }
-    probabilities = predict(model, subset, use_pwv, args)
+    probabilities = predict(
+        model,
+        subset,
+        use_pwv,
+        args,
+        feature_key=feature_key,
+    )
     target = subset["target"].bool()
     selected = {}
     for horizon, start, end in HORIZONS:
@@ -447,8 +476,16 @@ def evaluate_variant(
     selected_thresholds,
     thresholds,
     args,
+    feature_key="pwv",
 ):
-    probabilities = predict(model, cache, use_pwv, args, control=control)
+    probabilities = predict(
+        model,
+        cache,
+        use_pwv,
+        args,
+        control=control,
+        feature_key=feature_key,
+    )
     target = cache["target"].bool()
     summary = {"control": control, "horizons": {}, "eventwise": []}
     per_sample = defaultdict(dict)

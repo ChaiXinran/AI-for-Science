@@ -1,9 +1,13 @@
 import sys
+import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import torch
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -14,6 +18,12 @@ from diagnostics.pwv_conditional_probe import (
     cross_event_indices,
     paired_day_bootstrap,
 )
+from diagnostics.pwv_preconditioning_probe import (
+    PRIMARY_STRATUM,
+    build_strata,
+    causal_pwv_features,
+)
+from nowcasting.data_provider.custom_png import PngSequenceDataset
 
 
 class ConditionalProbeSmokeTest(unittest.TestCase):
@@ -91,6 +101,84 @@ class ConditionalProbeSmokeTest(unittest.TestCase):
         mapping = cross_event_indices(cases)
         for index, donor in enumerate(mapping.tolist()):
             self.assertNotEqual(cases[index], cases[donor])
+
+    def test_causal_native_pwv_history_never_uses_future_anchor(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            radar_root = root / "rain"
+            pwv_root = root / "pwv"
+            radar_day = radar_root / "202505" / "20250502"
+            radar_day.mkdir(parents=True)
+            start = datetime(2025, 5, 2, 0, 0)
+            for step in range(29):
+                stamp = start + timedelta(minutes=6 * step)
+                Image.fromarray(
+                    np.full((8, 8), 255 - step, dtype=np.uint8)
+                ).save(radar_day / (stamp.strftime("%Y-%m-%d-%H-%M-%S") + ".png"))
+
+            pwv_start = datetime(2025, 5, 1, 21, 30)
+            pwv_end = start + timedelta(minutes=6 * 28)
+            stamp = pwv_start
+            while stamp <= pwv_end:
+                day = pwv_root / stamp.strftime("%Y%m") / stamp.strftime("%Y%m%d")
+                day.mkdir(parents=True, exist_ok=True)
+                Image.fromarray(
+                    np.full((8, 8), stamp.minute, dtype=np.uint8)
+                ).save(day / (stamp.strftime("%Y-%m-%d-%H-%M-%S") + ".png"))
+                stamp += timedelta(minutes=6)
+
+            dataset = PngSequenceDataset(
+                data_root=radar_root,
+                pwv_root=pwv_root,
+                split="all",
+                input_length=9,
+                total_length=29,
+                img_height=32,
+                img_width=32,
+                require_contiguous=True,
+                strict_pwv=True,
+                pwv_history_minutes=180,
+                pwv_anchor_minutes=30,
+                pwv_invert=True,
+                pwv_intensity_scale=80,
+            )
+            sample = dataset[0]
+            self.assertEqual(
+                tuple(sample["pwv_history_frames"].shape), (7, 32, 32)
+            )
+            self.assertEqual(
+                sample["pwv_history_start_file"],
+                "2025-05-01-21-30-00.png",
+            )
+            self.assertEqual(
+                sample["pwv_history_end_file"],
+                "2025-05-02-00-30-00.png",
+            )
+            issue = datetime.strptime(
+                dataset.windows[0][8].stem, "%Y-%m-%d-%H-%M-%S"
+            )
+            history_end = datetime.strptime(
+                Path(sample["pwv_history_end_file"]).stem,
+                "%Y-%m-%d-%H-%M-%S",
+            )
+            self.assertLessEqual(history_end, issue)
+
+    def test_long_features_and_observed_radar_strata(self):
+        history = torch.arange(7.0).view(1, 7, 1, 1).expand(2, 7, 4, 4)
+        climatology = torch.zeros(1, 1, 4, 4)
+        features = causal_pwv_features(history, climatology, 80.0)
+        self.assertEqual(tuple(features.shape), (2, 6, 4, 4))
+        self.assertTrue(torch.all(features[:, 3] > 0))
+
+        cache = {
+            "target": torch.zeros(2, 20, 2, 4, 4, dtype=torch.uint8),
+            "observed_radar_tiles": torch.zeros(2, 9, 4, 4),
+        }
+        cache["observed_radar_tiles"][:, :3] = 1
+        cache["observed_radar_tiles"][:, -1] = 2
+        masks = build_strata(cache, [10.0, 20.0])
+        self.assertTrue(masks[PRIMARY_STRATUM].all())
+        self.assertFalse(masks["radar_quiet"].any())
 
 
 if __name__ == "__main__":
