@@ -1,0 +1,42 @@
+{
+  "protocol": "pwv_survival_intensity_adapter_pilot",
+  "role": "development_pilot",
+  "question": "Does causal processed-PWV state improve radar-conditioned echo survival and intensity at 1-2 h?",
+  "radar_backbone": {
+    "model": "NowcastNet",
+    "input_frames": 9,
+    "checkpoint_output_frames": 30,
+    "evaluated_output_frames": 20,
+    "frozen": true
+  },
+  "pwv_representation": {
+    "history_minutes": 180,
+    "anchor_minutes": 30,
+    "anchor_count": 7,
+    "uses_six_minute_sequence": false,
+    "warning": "The anchors still come from the available processed gridded product, not raw stations."
+  },
+  "adapter": {
+    "location": "after frozen radar forecast",
+    "candidate_support": "observed-radar or radar-forecast support only",
+    "signed_bounded_correction_mm_per_h": 12,
+    "initialization": "exact radar identity",
+    "second_hour_loss_weight": 2
+  },
+  "matched_variants": [
+    "radar_backbone",
+    "radar_adapter",
+    "pwv_aligned",
+    "pwv_static_same_checkpoint",
+    "pwv_cross_event_same_checkpoint"
+  ],
+  "checkpoint_selection": "validation CSI@10 + CSI@20 at 1-2 h",
+  "promotion_gate": {
+    "pwv_minus_radar_adapter_minimum_csi": 0.003,
+    "pwv_minus_static_minimum_csi": 0.003,
+    "pwv_minus_cross_event_minimum_csi": 0.003,
+    "required_thresholds_mm_per_h": [10, 20],
+    "maximum_far_increase_vs_radar_adapter": 0.02,
+    "requires_event_bootstrap_and_repeated_seeds_after_pilot": true
+  }
+}

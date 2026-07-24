@@ -1,0 +1,80 @@
+{
+  "train": {
+    "split": "train",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\pwv_signed_calibrator\\protocol\\split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "pwv_history_minutes": 180.0,
+    "pwv_anchor_minutes": 30.0,
+    "return_pwv_sequence": false,
+    "samples": 4,
+    "sample_sha256": "ff8ecc6c80fabc8a88fa51c22d6cb3beb95bd620ae07407c38482073d75ef56c",
+    "records": [
+      {
+        "case_name": "20250501",
+        "start_file": "2025-05-01-02-12-00.png",
+        "end_file": "2025-05-01-05-00-00.png",
+        "relative_dir": "202505/20250501",
+        "pwv_history_start_file": "2025-05-01-00-00-00.png",
+        "pwv_history_end_file": "2025-05-01-03-00-00.png"
+      },
+      {
+        "case_name": "20250528",
+        "start_file": "2025-05-28-15-36-00.png",
+        "end_file": "2025-05-28-18-24-00.png",
+        "relative_dir": "202505/20250528",
+        "pwv_history_start_file": "2025-05-28-13-00-00.png",
+        "pwv_history_end_file": "2025-05-28-16-00-00.png"
+      },
+      {
+        "case_name": "20250625",
+        "start_file": "2025-06-25-07-42-00.png",
+        "end_file": "2025-06-25-10-30-00.png",
+        "relative_dir": "202506/20250625",
+        "pwv_history_start_file": "2025-06-25-05-30-00.png",
+        "pwv_history_end_file": "2025-06-25-08-30-00.png"
+      },
+      {
+        "case_name": "20250722",
+        "start_file": "2025-07-22-21-06-00.png",
+        "end_file": "2025-07-22-23-54-00.png",
+        "relative_dir": "202507/20250722",
+        "pwv_history_start_file": "2025-07-22-18-30-00.png",
+        "pwv_history_end_file": "2025-07-22-21-30-00.png"
+      }
+    ]
+  },
+  "val": {
+    "split": "val",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\pwv_signed_calibrator\\protocol\\split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "pwv_history_minutes": 180.0,
+    "pwv_anchor_minutes": 30.0,
+    "return_pwv_sequence": false,
+    "samples": 2,
+    "sample_sha256": "b38a112d44073ed41c17fa8ad3834bda48c0fb13851f1c9a7d18c63e60afbe33",
+    "records": [
+      {
+        "case_name": "20250723",
+        "start_file": "2025-07-23-00-00-00.png",
+        "end_file": "2025-07-23-02-48-00.png",
+        "relative_dir": "202507/20250723",
+        "pwv_history_start_file": "2025-07-22-21-30-00.png",
+        "pwv_history_end_file": "2025-07-23-00-30-00.png"
+      },
+      {
+        "case_name": "20250814",
+        "start_file": "2025-08-14-21-06-00.png",
+        "end_file": "2025-08-14-23-54-00.png",
+        "relative_dir": "202508/20250814",
+        "pwv_history_start_file": "2025-08-14-18-30-00.png",
+        "pwv_history_end_file": "2025-08-14-21-30-00.png"
+      }
+    ]
+  }
+}

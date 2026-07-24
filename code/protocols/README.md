@@ -241,3 +241,24 @@ bash code/scripts/run_pwv_fair_dynamic_control.sh \
 
 The result is
 `seed_2026/fair_dynamic_residual_control/fair_dynamic_residual_summary.json`.
+
+### PWV survival/intensity output-adapter pilot
+
+This mechanism-aligned pilot freezes the locked radar checkpoint and trains
+matched dense output adapters. It uses seven causal 30-minute PWV anchors, not
+the six-minute interpolated sequence. PWV can only modify support already
+proposed by observed radar or the frozen radar forecast.
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+export RADAR_CHECKPOINT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_radar_gate/checkpoints/radar/best_state_dict.ckpt
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/radar_object_failure_attribution/protocol/split_manifest.json
+export OUTPUT_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_survival_intensity_adapter_pilot
+bash code/scripts/run_survival_intensity_adapter_pilot.sh
+```
+
+The primary artifact is `${OUTPUT_ROOT}/metrics.json`. Promotion requires
+aligned PWV to exceed the parameter-matched radar adapter, static PWV, and
+cross-event PWV by at least 0.003 CSI at both 10 and 20 mm/h in the second
+hour, without increasing FAR by more than 0.02.

@@ -1,0 +1,24 @@
+{
+  "radar_adapter": [
+    {
+      "epoch": 1,
+      "total": 0.6667683720588684,
+      "reconstruction": 0.1665610633790493,
+      "soft_csi": 0.9998531341552734,
+      "false_alarm": 0.0027851081686094403,
+      "correction_l1": 0.001111902340198867,
+      "val_csi10_plus_csi20_second_hour": 0.0
+    }
+  ],
+  "pwv_adapter": [
+    {
+      "epoch": 1,
+      "total": 0.66676165163517,
+      "reconstruction": 0.16655424237251282,
+      "soft_csi": 0.9998531341552734,
+      "false_alarm": 0.002785410499200225,
+      "correction_l1": 0.001138249717769213,
+      "val_csi10_plus_csi20_second_hour": 0.0
+    }
+  ]
+}
