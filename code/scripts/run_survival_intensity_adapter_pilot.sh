@@ -13,10 +13,18 @@ MAX_VAL_SAMPLES="${MAX_VAL_SAMPLES:-512}"
 EPOCHS="${EPOCHS:-12}"
 ADAPTER_BATCH_SIZE="${ADAPTER_BATCH_SIZE:-4}"
 BOOTSTRAP_REPETITIONS="${BOOTSTRAP_REPETITIONS:-1000}"
+TEST_ONLY="${TEST_ONLY:-0}"
 
 export OMP_NUM_THREADS="${PWV_OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${PWV_MKL_NUM_THREADS:-1}"
 mkdir -p "${OUTPUT_ROOT}"
+
+EXTRA_ARGS=()
+LOG_NAME="run.log"
+if [[ "${TEST_ONLY}" == "1" ]]; then
+  EXTRA_ARGS+=(--test_only)
+  LOG_NAME="test_run.log"
+fi
 
 python -u code/experiments/pwv_survival_intensity_adapter.py \
   --data_root "${DATA_ROOT}" \
@@ -59,7 +67,8 @@ python -u code/experiments/pwv_survival_intensity_adapter.py \
   --selection_thresholds 10,20 \
   --bootstrap_repetitions "${BOOTSTRAP_REPETITIONS}" \
   --minimum_csi_delta 0.003 \
-  2>&1 | tee "${OUTPUT_ROOT}/run.log"
+  "${EXTRA_ARGS[@]}" \
+  2>&1 | tee "${OUTPUT_ROOT}/${LOG_NAME}"
 
 echo "Metrics: ${OUTPUT_ROOT}/metrics.json"
 echo "History: ${OUTPUT_ROOT}/train_history.json"

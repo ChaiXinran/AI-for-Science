@@ -61,6 +61,7 @@ def build_parser():
     parser.add_argument("--val_ratio", type=float, default=0.15)
     parser.add_argument("--max_train_samples", type=int, default=2048)
     parser.add_argument("--max_val_samples", type=int, default=512)
+    parser.add_argument("--max_test_samples", type=int, default=0)
     parser.add_argument("--max_samples_strategy", choices=["head", "uniform"], default="uniform")
     parser.add_argument("--intensity_scale", type=float, default=35.0)
     parser.add_argument("--pixel_min", type=float, default=0.0)
@@ -92,6 +93,11 @@ def build_parser():
     parser.add_argument("--bootstrap_repetitions", type=int, default=1000)
     parser.add_argument("--minimum_csi_delta", type=float, default=0.003)
     parser.add_argument("--reuse_cache", action="store_true")
+    parser.add_argument(
+        "--test_only",
+        action="store_true",
+        help="Evaluate saved best adapters on the locked test split without retraining.",
+    )
     return parser
 
 
@@ -143,6 +149,18 @@ def attach_auxiliary(train_cache, val_cache, scale):
         cache["pwv_static"] = static.half()
         del cache["pwv_history"]
     return climatology
+
+
+def attach_auxiliary_with_climatology(cache, climatology, scale):
+    aligned = causal_pwv_state(
+        cache["pwv_history"].float(), climatology.float(), scale
+    )
+    static = torch.zeros_like(aligned)
+    static[:, 0] = aligned[:, 0]
+    cache["pwv_aligned"] = aligned.half()
+    cache["pwv_static"] = static.half()
+    del cache["pwv_history"]
+    return cache
 
 
 def _candidate_from_cached(adapter, cache, indices, device):
@@ -492,6 +510,145 @@ def promotion_gate(comparisons, minimum_delta):
     }
 
 
+def load_adapter(path, args):
+    adapter = DenseSurvivalIntensityAdapter(
+        hidden_channels=args.hidden_channels,
+        max_correction_mm_per_h=args.max_correction,
+        candidate_threshold_mm_per_h=args.candidate_threshold,
+        candidate_radius=args.candidate_radius,
+    ).to(args.device)
+    payload = torch.load(path, map_location=args.device)
+    adapter.load_state_dict(payload["model"] if "model" in payload else payload)
+    return adapter
+
+
+def evaluate_locked_split(
+    radar_adapter,
+    pwv_adapter,
+    identity_adapter,
+    cache,
+    thresholds,
+    args,
+):
+    variants = {
+        "radar_backbone": evaluate(
+            identity_adapter, cache, "", thresholds, args
+        ),
+        "radar_adapter": evaluate(
+            radar_adapter, cache, "", thresholds, args
+        ),
+        "pwv_aligned": evaluate(
+            pwv_adapter, cache, "pwv_aligned", thresholds, args
+        ),
+        "pwv_static": evaluate(
+            pwv_adapter, cache, "pwv_static", thresholds, args
+        ),
+        "pwv_cross_event": evaluate(
+            pwv_adapter,
+            cache,
+            "pwv_aligned",
+            thresholds,
+            args,
+            donor_indices=cross_event_indices(cache["cases"]),
+        ),
+    }
+    comparisons = {
+        "radar_adapter_minus_radar_backbone": compare(
+            variants["radar_adapter"],
+            variants["radar_backbone"],
+            thresholds,
+            args,
+        ),
+        "pwv_aligned_minus_radar_backbone": compare(
+            variants["pwv_aligned"],
+            variants["radar_backbone"],
+            thresholds,
+            args,
+        ),
+        "pwv_aligned_minus_radar_adapter": compare(
+            variants["pwv_aligned"], variants["radar_adapter"], thresholds, args
+        ),
+        "pwv_aligned_minus_pwv_static": compare(
+            variants["pwv_aligned"], variants["pwv_static"], thresholds, args
+        ),
+        "pwv_aligned_minus_pwv_cross_event": compare(
+            variants["pwv_aligned"],
+            variants["pwv_cross_event"],
+            thresholds,
+            args,
+        ),
+    }
+    return variants, comparisons
+
+
+def run_test_only(args, output, thresholds):
+    cache_path = output / "frozen_radar_cache.pt"
+    if not cache_path.exists():
+        raise FileNotFoundError("training cache is required: {}".format(cache_path))
+    payload = torch.load(cache_path, map_location="cpu")
+    climatology = payload["climatology"]
+    test_cache_path = output / "frozen_radar_test_cache.pt"
+    test_loader = make_png_dataloader(
+        args, "test", args.max_test_samples, shuffle=False, drop_last=False
+    )
+    save_dataset_provenance(
+        {"test": test_loader}, output / "test_data_manifest.json"
+    )
+    if args.reuse_cache and test_cache_path.exists():
+        test_cache = torch.load(test_cache_path, map_location="cpu")
+        print("reused {}".format(test_cache_path), flush=True)
+    else:
+        radar = build_generator(args)
+        load_generator_weights(radar, args.radar_checkpoint, args.device)
+        for parameter in radar.parameters():
+            parameter.requires_grad_(False)
+        test_cache = build_cache(radar, test_loader, args, "test")
+        del radar
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        attach_auxiliary_with_climatology(
+            test_cache, climatology, args.pwv_intensity_scale
+        )
+        safe_torch_save(test_cache, test_cache_path)
+    radar_adapter = load_adapter(output / "radar_adapter.ckpt", args)
+    pwv_adapter = load_adapter(output / "pwv_adapter.ckpt", args)
+    identity_adapter = DenseSurvivalIntensityAdapter(
+        hidden_channels=args.hidden_channels,
+        max_correction_mm_per_h=args.max_correction,
+        candidate_threshold_mm_per_h=args.candidate_threshold,
+        candidate_radius=args.candidate_radius,
+    ).to(args.device)
+    variants, comparisons = evaluate_locked_split(
+        radar_adapter,
+        pwv_adapter,
+        identity_adapter,
+        test_cache,
+        thresholds,
+        args,
+    )
+    report = {
+        "protocol": "pwv_survival_intensity_adapter_pilot",
+        "role": "locked_held_out_test",
+        "checkpoint_selection": "fixed from validation; no test-set tuning",
+        "samples": {
+            "test": len(test_cache["cases"]),
+            "test_case_clusters": len(set(test_cache["cases"])),
+        },
+        "variants": variants,
+        "comparisons": comparisons,
+        "promotion_gate": promotion_gate(comparisons, args.minimum_csi_delta),
+        "warning": (
+            "Do not modify the model or thresholds after inspecting this result; "
+            "a successor requires repeated seeds or a newly held-out split."
+        ),
+    }
+    path = output / "test_metrics.json"
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(sanitize_json_numbers(report), handle, indent=2)
+    print(json.dumps(report["promotion_gate"], indent=2), flush=True)
+    print("wrote {}".format(path), flush=True)
+
+
 def main():
     args = add_model_runtime_args(build_parser().parse_args())
     if args.evaluation_lead_frames != 20:
@@ -499,6 +656,10 @@ def main():
     seed_everything(args.seed)
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
+    thresholds = _parse_floats(args.thresholds)
+    if args.test_only:
+        run_test_only(args, output, thresholds)
+        return
     cache_path = output / "frozen_radar_cache.pt"
     train_loader = make_png_dataloader(
         args, "train", args.max_train_samples, shuffle=False, drop_last=False
@@ -535,7 +696,6 @@ def main():
             },
             cache_path,
         )
-    thresholds = _parse_floats(args.thresholds)
     selection_thresholds = _parse_floats(args.selection_thresholds)
     template = DenseSurvivalIntensityAdapter(
         hidden_channels=args.hidden_channels,
@@ -577,54 +737,14 @@ def main():
         candidate_radius=args.candidate_radius,
     ).to(args.device)
     radar_backbone_identity.load_state_dict(initial_state)
-    variants = {
-        "radar_backbone": evaluate(
-            radar_backbone_identity, val_cache, "", thresholds, args
-        ),
-        "radar_adapter": evaluate(
-            radar_adapter, val_cache, "", thresholds, args
-        ),
-        "pwv_aligned": evaluate(
-            pwv_adapter, val_cache, "pwv_aligned", thresholds, args
-        ),
-        "pwv_static": evaluate(
-            pwv_adapter, val_cache, "pwv_static", thresholds, args
-        ),
-        "pwv_cross_event": evaluate(
-            pwv_adapter,
-            val_cache,
-            "pwv_aligned",
-            thresholds,
-            args,
-            donor_indices=cross_event_indices(val_cache["cases"]),
-        ),
-    }
-    comparisons = {
-        "radar_adapter_minus_radar_backbone": compare(
-            variants["radar_adapter"],
-            variants["radar_backbone"],
-            thresholds,
-            args,
-        ),
-        "pwv_aligned_minus_radar_backbone": compare(
-            variants["pwv_aligned"],
-            variants["radar_backbone"],
-            thresholds,
-            args,
-        ),
-        "pwv_aligned_minus_radar_adapter": compare(
-            variants["pwv_aligned"], variants["radar_adapter"], thresholds, args
-        ),
-        "pwv_aligned_minus_pwv_static": compare(
-            variants["pwv_aligned"], variants["pwv_static"], thresholds, args
-        ),
-        "pwv_aligned_minus_pwv_cross_event": compare(
-            variants["pwv_aligned"],
-            variants["pwv_cross_event"],
-            thresholds,
-            args,
-        ),
-    }
+    variants, comparisons = evaluate_locked_split(
+        radar_adapter,
+        pwv_adapter,
+        radar_backbone_identity,
+        val_cache,
+        thresholds,
+        args,
+    )
     report = {
         "protocol": "pwv_survival_intensity_adapter_pilot",
         "role": "development_pilot",

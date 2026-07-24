@@ -1,0 +1,33 @@
+{
+  "test": {
+    "split": "test",
+    "data_root": "D:\\_Search\\AIforScience\\Rewritten\\capsule-3935105\\data\\DATA_2025_S\\RAIN_2025_S",
+    "split_manifest": ".research\\pwv_signed_calibrator\\protocol\\split_manifest.json",
+    "frame_minutes": 6.0,
+    "require_contiguous": true,
+    "max_samples_strategy": "uniform",
+    "pwv_history_minutes": 180.0,
+    "pwv_anchor_minutes": 30.0,
+    "return_pwv_sequence": false,
+    "samples": 2,
+    "sample_sha256": "db6bf8650a468c6b4931801a599b0ec9bcdb02b115459b355a71721f80213259",
+    "records": [
+      {
+        "case_name": "20250815",
+        "start_file": "2025-08-15-00-00-00.png",
+        "end_file": "2025-08-15-02-48-00.png",
+        "relative_dir": "202508/20250815",
+        "pwv_history_start_file": "2025-08-14-21-30-00.png",
+        "pwv_history_end_file": "2025-08-15-00-30-00.png"
+      },
+      {
+        "case_name": "20250831",
+        "start_file": "2025-08-31-20-12-00.png",
+        "end_file": "2025-08-31-23-00-00.png",
+        "relative_dir": "202508/20250831",
+        "pwv_history_start_file": "2025-08-31-18-00-00.png",
+        "pwv_history_end_file": "2025-08-31-21-00-00.png"
+      }
+    ]
+  }
+}
