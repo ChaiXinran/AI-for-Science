@@ -136,3 +136,31 @@ confound comparisons between separately trained models, but it cannot explain
 the same-checkpoint aligned-versus-shifted invariance: that intervention holds
 all parameters fixed and directly shows that the learned predictor is
 functionally insensitive to PWV location.
+
+## Radar-pivot screening: interpretability and geographic generalization
+
+This section evaluates the two directions articulated by the project lead on
+2026-07-24. It does not reopen dynamic-PWV modelling on the current interpolated
+PNG product.
+
+| Citation | Problem and data | Relevant method/evidence | Limitation for this project | Decision relevance |
+|---|---|---|---|---|
+| Miralles et al., 2026, *Pointwise is Pointless?* (arXiv:2606.18436) | Nordic 0–2 h multimodal nowcasting from radar, NWP, stations and satellite | Source-by-source ablations show that each modality improves different targets; station/onset gains do not automatically become coherent radar-grid gains, and deterministic satellite input can activate rain too early | Preprint; not GNSS-PWV and not a cross-region study | Strong caution against treating a CSI change or an attention map as an explanation; motivates target-specific attribution and uncertainty |
+| Song et al., 2025, *Prior Information Assisted Multi-Scale Network for Precipitation Nowcasting* (DOI 10.1016/j.cageo.2025.105851) | Radar nowcasting with terrain and cross-region pretrained knowledge | Cross-attention relates terrain elevation to radar features; a teacher model from another region guides the target-region student | Requires target-region training and bundles terrain, architecture and distillation; not a leave-one-region-out identification of invariant dynamics | Directly occupies generic “add terrain/transfer knowledge” but supports explicit static-region conditioning |
+| Zhou et al., 2026, *Learning to Refine: Spectral-Decoupled Iterative Refinement* (OpenReview zB4xF9tfdm) | Radar nowcasting on CIKM, Shanghai and SEVIR | Reports a zero-shot transfer from SEVIR to Shanghai and attributes robustness to deterministic frequency-decoupled refinement | Very recent; one transfer direction and no terrain/PWV conditioning | Establishes a necessary cross-domain baseline and means “cross-region generalization” alone is not a sufficient novelty claim |
+| Ravuri et al., 2021, *Skilful Precipitation Nowcasting Using Deep Generative Models of Radar* (DOI 10.1038/s41586-021-03854-z) | UK radar nowcasting with a separately trained and evaluated US dataset | Demonstrates that an architecture can remain competitive on a second radar domain; evaluates CSI, spectra, CRPS and expert utility | It retrains on the US data rather than testing geographic zero-shot transfer | Shows that multi-region evidence is an established expectation and that CSI alone is inadequate |
+| Lu et al., 2026, *GRENet* (DOI 10.1029/2025GL120787) | GNSS water vapour and radar GAN nowcasting | Reports better CSI/FSS and more accurate heavy-rain extent/location than radar-only for a heavy-rain case | Case-study evidence and accessible page do not establish matched attribution or cross-region robustness | The broad GNSS-enhanced radar claim is occupied; novelty must come from identifiable modality roles and generalization |
+
+### Screening synthesis
+
+1. The two proposed directions are scientifically compatible but should not be
+   implemented as one large architecture before data feasibility is known.
+2. The publishable intersection is not “more modalities”. It is an explicit
+   separation of fast radar dynamics, static geographic conditions and slowly
+   varying environmental state, tested by counterfactual modality controls.
+3. Cross-region generalization currently fails the data gate: the audited
+   project contains one confirmed regional dataset. Random crops, dates or
+   seasons are not substitutes for a held-out geographic domain.
+4. The current interpolated PWV product may remain a slow environmental or
+   climatological covariate, but it cannot support another claim about
+   independently observed minute-scale PWV dynamics.

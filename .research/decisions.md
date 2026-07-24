@@ -424,3 +424,50 @@ current gain as dynamic-PWV skill. Any next trained comparison must give the
 radar control an explicit static coordinate/climatology map, otherwise the PWV
 branch receives an unfair location prior. A dynamic-PWV claim requires real
 anomalies to beat that strengthened control.
+
+## 2026-07-23 - Close dynamic PWV modeling on the current product
+
+**Final decision:** The strengthened fair control failed 0/4 tasks and violated
+the safety rule. Dynamic residual PWV reduced CSI and AP at both 0--1 h tasks
+relative to an equal-capacity model given the same static PWV climatology. At
+1--2 h, CSI gains were only +0.00042 and +0.00089, below the +0.003 minimum.
+Aligned dynamics also lost significantly to cross-event dynamics at
+0--1 h/10.
+
+**Scientific interpretation:** The earlier high-threshold CSI gains came from
+calibration and stationary spatial prior effects. They are not evidence that
+event-specific PWV improves 0--2 h nowcasting. The six-minute interpolated PWV
+sequence lacks sufficient independently observed short-term evolution for the
+claimed mechanism under this protocol.
+
+**Scope closure:** Do not run more seeds, full-data training, end-to-end PWV
+adapters, or additional fusion variants on this PWV PNG product. Reopening a
+dynamic-PWV claim requires materially new information: native non-interpolated
+PWV with provenance, preferably station coverage/uncertainty, and an advecting
+flow or thermodynamic variable such as winds, moisture flux convergence, CAPE,
+or NWP humidity. Otherwise pivot the paper away from dynamic PWV.
+
+## 2026-07-24 - Reframe around interpretable environmental conditioning and geographic generalization
+
+**Direction received from the project lead:** Evaluate two application-driven
+research directions: interpretable radar plus GNSS-PWV fusion that can later
+extend to more sources, and cross-region generalization through terrain and
+precipitation-regime learning.
+
+**Decision:** Treat these as two gated hypotheses, not as immediate permission
+to build a larger fusion network. The long-term unifying question is whether
+separating fast radar dynamics from static terrain/climatology and slowly
+varying GNSS-PWV conditions improves both explanation and out-of-region skill.
+
+**Current gate status:** Both are conditional. Generic radar plus PWV fusion is
+already occupied, while identifiable modality roles remain open. Geographic
+generalization is scientifically promising but is not currently testable:
+the audited project has one confirmed regional dataset. The current
+interpolated PWV PNG product also remains closed for minute-scale dynamic
+claims.
+
+**Next action:** Inventory candidate regional radar, GNSS and DEM data; define
+common units, masks, lead times and leave-one-region-out splits; recover native
+GNSS timestamps, station support and quality information. Do not train a new
+PWV architecture until at least the data gate and a lightweight conditional
+information gate pass.

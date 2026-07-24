@@ -1,0 +1,78 @@
+dossier: "Interpretable GNSS-PWV fusion and cross-region radar nowcasting"
+generated: "2026-07-24"
+run_type: "screening-grade gap retest after the current dynamic-PWV product failed fair controls"
+downstream_consumer: research-design-helper
+recall:
+  tool: "manual adversarial web search after research-hub initialization check failed"
+  query_phrasings: 8
+  unique_papers: 40
+  tool_confidence: medium
+  dossier_confidence: medium
+  screen:
+    gate: "manual title/abstract/full-page relevance check"
+    retrieved: 40
+    kept: 12
+    screened_out: 28
+    tier: cold-start
+    note: "Counts are approximate because the fallback web search did not expose a deduplicated export."
+  note: "research-hub CLI is installed but not initialized; automated multi-backend deduplication was unavailable."
+pipeline:
+  - "research-hub preflight and initialization check"
+  - "manual adversarial primary-source web search"
+  - "literature-triage-matrix append to literature_matrix.md"
+  - "gap-to-topic three-gate assessment"
+gaps:
+  - id: G1
+    name: "Interpretable environmental conditioning of radar nowcasting"
+    statement: >-
+      Separate fast radar dynamics, static terrain/climatology and slowly varying
+      GNSS-PWV state, then use matched counterfactual controls to identify when
+      PWV changes 0-2 h forecast skill.
+    type: A
+    open: partially-occupied
+    open_confidence: medium
+    dead_end_status: partially-attempted
+    dead_end_evidence: >-
+      Direct radar+GNSS fusion has been attempted by Liu et al. (2025,
+      DOI 10.1109/TGRS.2025.3554745), Sun et al. (2026,
+      DOI 10.3390/rs18121929), and Lu et al. (2026,
+      DOI 10.1029/2025GL120787), but source attribution remains bundled or limited.
+    contribution_type: borderline
+    borderline_reason: B1
+    feasibility: feasible-with-effort
+    verdict: conditional-go
+    verdict_reason: >-
+      Proceed only with native/provenanced GNSS water-vapour data and a
+      preregistered conditional-information result beyond terrain, climatology,
+      spatial-shift and cross-event controls.
+    linked_claim: null
+  - id: G2
+    name: "Terrain and precipitation-regime conditioned cross-region nowcasting"
+    statement: >-
+      Learn region-invariant radar evolution and explicit terrain, climatology,
+      precipitation-regime and GNSS-PWV conditions, evaluated with leave-one-region-out tests.
+    type: A
+    open: partially-attempted
+    open_confidence: medium
+    dead_end_status: partially-attempted
+    dead_end_evidence: >-
+      Zhou et al. (2026, OpenReview zB4xF9tfdm) report a SEVIR-to-Shanghai
+      zero-shot test, and Song et al. (2025, DOI 10.1016/j.cageo.2025.105851)
+      combine terrain attention with cross-region teacher knowledge, but neither
+      supplies the proposed environmental role decomposition.
+    contribution_type: problem-solving
+    feasibility: not-feasible
+    verdict: conditional-go
+    verdict_reason: >-
+      Scientifically promising but not currently identifiable because the
+      audited project contains only one confirmed regional dataset.
+    linked_claim: null
+open_questions:
+  - id: Q1
+    text: "Which additional regions can provide co-temporal radar targets, GNSS PWV/ZWD and terrain with compatible licensing?"
+  - id: Q2
+    text: "Can native GNSS station observations and interpolation uncertainty be recovered for the current region?"
+  - id: Q3
+    text: "Which precipitation-regime labels can be defined identically across all regions without future information?"
+  - id: Q4
+    text: "Can radar calibration and rain-rate thresholds be harmonized before leave-one-region-out evaluation?"

@@ -1,0 +1,58 @@
+{
+  "minimum_nonadvective_miss_share": 0.2,
+  "rows": [
+    {
+      "threshold": 10.0,
+      "horizon": "1h-2h",
+      "missed_objects": 8,
+      "missed_by_regime": {
+        "translation": 8,
+        "rapid_growth": 0,
+        "rapid_decay": 0,
+        "birth": 0,
+        "split_merge": 0
+      },
+      "birth_growth_missed": 0,
+      "birth_growth_miss_share": 0.0,
+      "passes_share_gate": false
+    },
+    {
+      "threshold": 20.0,
+      "horizon": "1h-2h",
+      "missed_objects": 0,
+      "missed_by_regime": {
+        "translation": 0,
+        "rapid_growth": 0,
+        "rapid_decay": 0,
+        "birth": 0,
+        "split_merge": 0
+      },
+      "birth_growth_missed": 0,
+      "birth_growth_miss_share": null,
+      "passes_share_gate": false
+    },
+    {
+      "threshold": 30.0,
+      "horizon": "1h-2h",
+      "missed_objects": 0,
+      "missed_by_regime": {
+        "translation": 0,
+        "rapid_growth": 0,
+        "rapid_decay": 0,
+        "birth": 0,
+        "split_merge": 0
+      },
+      "birth_growth_missed": 0,
+      "birth_growth_miss_share": null,
+      "passes_share_gate": false
+    }
+  ],
+  "thresholds_with_data": 1,
+  "thresholds_passing": 0,
+  "provisional_gate": "fail",
+  "warning": "This is provisional until validation and test event-cluster intervals agree.",
+  "protocol": "radar_object_failure_attribution",
+  "samples": 4,
+  "case_clusters": 4,
+  "change_fraction": 0.4
+}

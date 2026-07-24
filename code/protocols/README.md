@@ -16,6 +16,29 @@ From the repository root:
 ```bash
 export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
 export PWV_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/PWV_2025_S
+
+## Radar object failure attribution
+
+This diagnostic is the locked successor after closing dynamic-PWV modelling on
+the current interpolated PNG product. It does not train a new model. It uses a
+locked radar-only checkpoint to classify observed and forecast objects as
+translation, rapid growth, rapid decay, birth, or split/merge, and reports
+displacement, intensity, birth-existence, and full-existence oracle CSI gains.
+
+```bash
+export DATA_ROOT=/root/autodl-tmp/datasets/north_china/DATA_2025_S/DATA_2025_S/RAIN_2025_S
+export RADAR_CHECKPOINT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1_radar_gate/checkpoints/radar/best_state_dict.ckpt
+export SPLIT_MANIFEST=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1/protocol/split_manifest.json
+export OUTPUT_ROOT=/root/autodl-tmp/nowcastnet_runs/radar_object_failure_attribution
+export MODEL_NGF=32
+export MAX_SAMPLES=0
+bash code/scripts/run_radar_failure_attribution.sh
+```
+
+`MAX_SAMPLES=0` evaluates all locked test windows. The primary artifact is
+`test/failure_attribution.json`; the report folder contains four PNG figures
+and `decision_summary.json`. Oracle gains are diagnostic upper bounds, not
+achievable forecast scores.
 export RUN_ROOT=/root/autodl-tmp/nowcastnet_runs/pwv_birth_growth_v1
 export DEVICE=cuda:0
 export BATCH_SIZE=8

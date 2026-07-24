@@ -23,6 +23,11 @@ from nowcasting.experiments.common import (
     sanitize_json_numbers,
     seed_everything,
 )
+from nowcasting.object_attribution import (
+    analyze_sample as analyze_object_failure_sample,
+    cluster_bootstrap as object_failure_cluster_bootstrap,
+    summarize_records as summarize_object_failure_records,
+)
 
 
 def build_parser():
@@ -75,6 +80,16 @@ def build_parser():
     parser.add_argument("--object_thresholds", type=str, default="16")
     parser.add_argument("--object_min_area", type=int, default=4)
     parser.add_argument("--object_iou_threshold", type=float, default=0.1)
+    parser.add_argument(
+        "--failure_attribution",
+        action="store_true",
+        help="Run object-regime and displacement/intensity/existence oracle diagnostics.",
+    )
+    parser.add_argument("--attribution_thresholds", type=str, default="10,20,30")
+    parser.add_argument("--attribution_change_fractions", type=str, default="0.2,0.4,0.6")
+    parser.add_argument("--attribution_max_distance_pixels", type=float, default=12.0)
+    parser.add_argument("--attribution_tracking_threshold_ratio", type=float, default=0.5)
+    parser.add_argument("--attribution_bootstrap_iterations", type=int, default=500)
     parser.add_argument("--no_invert", action="store_true")
     parser.add_argument("--deterministic_noise", action="store_true")
     return parser
@@ -1337,6 +1352,10 @@ def main():
     extreme_case_threshold = quantile_info.get("thresholds", {}).get("P99", 0.0)
     extreme_cases = init_extreme_cases(args.num_extreme_cases)
     eventwise_records = []
+    failure_attribution_records = []
+    failure_attribution_cases = []
+    attribution_thresholds = parse_thresholds(args.attribution_thresholds)
+    attribution_change_fractions = parse_float_list(args.attribution_change_fractions)
 
     with torch.no_grad():
         for batch_id, batch in enumerate(loader):
@@ -1400,6 +1419,26 @@ def main():
             pred_np = pred.detach().cpu().numpy()
             target_np = target.detach().cpu().numpy()
             input_np = frames.detach().cpu().numpy()[..., 0]
+            if args.failure_attribution:
+                for sample_index in range(pred_np.shape[0]):
+                    failure_attribution_records.append(
+                        analyze_object_failure_sample(
+                            input_np[sample_index, args.input_length - 1],
+                            pred_np[sample_index],
+                            target_np[sample_index],
+                            thresholds=attribution_thresholds,
+                            change_fractions=attribution_change_fractions,
+                            frame_minutes=args.frame_minutes,
+                            horizon_bins=horizon_bins,
+                            min_area=args.object_min_area,
+                            iou_threshold=args.object_iou_threshold,
+                            max_distance_pixels=args.attribution_max_distance_pixels,
+                            tracking_threshold_ratio=args.attribution_tracking_threshold_ratio,
+                        )
+                    )
+                    failure_attribution_cases.append(
+                        str(batch.get("case_name", [""] * pred_np.shape[0])[sample_index])
+                    )
             update_extreme_cases(
                 extreme_cases,
                 args.num_extreme_cases,
@@ -1503,6 +1542,49 @@ def main():
             "persistence": summarize_object_store(persistence_objects, args.frame_minutes),
         },
     }
+    if args.failure_attribution:
+        failure_summary = summarize_object_failure_records(failure_attribution_records)
+        failure_bootstrap = object_failure_cluster_bootstrap(
+            failure_attribution_records,
+            failure_attribution_cases,
+            iterations=args.attribution_bootstrap_iterations,
+            seed=args.seed,
+        )
+        failure_payload = {
+            "protocol": "radar_object_failure_attribution",
+            "samples": len(failure_attribution_records),
+            "case_clusters": len(set(failure_attribution_cases)),
+            "thresholds_mm_per_h": attribution_thresholds,
+            "change_fractions": attribution_change_fractions,
+            "horizon_bins": [list(item) for item in horizon_bins],
+            "object_min_area": args.object_min_area,
+            "object_iou_threshold": args.object_iou_threshold,
+            "max_distance_pixels": args.attribution_max_distance_pixels,
+            "tracking_threshold_ratio": args.attribution_tracking_threshold_ratio,
+            "summary": failure_summary,
+            "cluster_bootstrap": failure_bootstrap,
+            "interpretation": {
+                "displacement": "Upper-bound CSI after moving associated forecast objects to observed centroids.",
+                "intensity": "Upper-bound CSI after matching associated-object intensity mass.",
+                "birth_existence": "Upper-bound CSI after inserting missed observed birth objects only.",
+                "existence": "Upper-bound CSI after deleting unmatched forecasts and inserting all missed observations.",
+                "warning": "Oracle gains diagnose error sources; they are not achievable forecast skill.",
+            },
+        }
+        with open(output_dir / "failure_attribution.json", "w", encoding="utf-8") as f:
+            json.dump(
+                sanitize_json_numbers(failure_payload),
+                f,
+                indent=2,
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+        metrics["failure_attribution"] = {
+            "enabled": True,
+            "artifact": "failure_attribution.json",
+            "samples": len(failure_attribution_records),
+            "case_clusters": len(set(failure_attribution_cases)),
+        }
     metrics = sanitize_json_numbers(metrics)
     with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, allow_nan=False)

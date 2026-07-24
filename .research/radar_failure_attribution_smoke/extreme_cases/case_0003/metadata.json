@@ -1,0 +1,12 @@
+{
+  "rank": 3,
+  "score": 0.0,
+  "case_name": "20250730",
+  "start_file": "2025-07-30-14-06-00.png",
+  "target_max": 0.0,
+  "extreme_pixels": 0,
+  "event_thresholds": {
+    "P95": 4.9432373046875,
+    "P99": 7.1392822265625
+  }
+}

@@ -1,0 +1,2074 @@
+{
+  "protocol": "radar_object_failure_attribution",
+  "samples": 4,
+  "case_clusters": 4,
+  "thresholds_mm_per_h": [
+    10.0,
+    20.0,
+    30.0
+  ],
+  "change_fractions": [
+    0.2,
+    0.4,
+    0.6
+  ],
+  "horizon_bins": [
+    [
+      0.0,
+      1.0,
+      "0h-1h"
+    ],
+    [
+      1.0,
+      2.0,
+      "1h-2h"
+    ]
+  ],
+  "object_min_area": 4,
+  "object_iou_threshold": 0.1,
+  "max_distance_pixels": 12.0,
+  "tracking_threshold_ratio": 0.5,
+  "summary": {
+    "thresholds": {
+      "10": {
+        "0.2": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 2,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 2,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 1,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 1,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 14,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 7,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 7,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 1,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 1,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 47,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          }
+        },
+        "0.4": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 3,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 3,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 14,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 8,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 8,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 47,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          }
+        },
+        "0.6": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 3,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 3,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 14,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 14,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 8,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 8,
+                "false_alarm": 0,
+                "object_pod": 0.0,
+                "strict_type_pod": 0.0,
+                "object_far": null,
+                "strict_type_csi": 0.0
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 47,
+                "false_alarm": 0,
+                "csi": 0.0,
+                "csi_delta_vs_original": 0.0
+              },
+              "existence": {
+                "hit": 47,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": 1.0,
+                "csi_delta_vs_original": 1.0
+              }
+            }
+          }
+        }
+      },
+      "20": {
+        "0.2": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        },
+        "0.4": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        },
+        "0.6": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        }
+      },
+      "30": {
+        "0.2": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        },
+        "0.4": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        },
+        "0.6": {
+          "0h-1h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          },
+          "1h-2h": {
+            "regimes": {
+              "translation": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_growth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "rapid_decay": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "birth": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              },
+              "split_merge": {
+                "observed": 0,
+                "predicted": 0,
+                "detected": 0,
+                "correct_type": 0,
+                "missed": 0,
+                "false_alarm": 0,
+                "object_pod": null,
+                "strict_type_pod": null,
+                "object_far": null,
+                "strict_type_csi": null
+              }
+            },
+            "oracles": {
+              "original": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "displacement": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "intensity": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "birth_existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              },
+              "existence": {
+                "hit": 0,
+                "miss": 0,
+                "false_alarm": 0,
+                "csi": null,
+                "csi_delta_vs_original": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "cluster_bootstrap": {
+    "10": {
+      "0.2": {
+        "0h-1h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        },
+        "1h-2h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        }
+      },
+      "0.4": {
+        "0h-1h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        },
+        "1h-2h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        }
+      },
+      "0.6": {
+        "0h-1h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        },
+        "1h-2h": {
+          "displacement": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "intensity": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "birth_existence": {
+            "mean": 0.0,
+            "low_95": 0.0,
+            "high_95": 0.0,
+            "iterations": 34,
+            "clusters": 4
+          },
+          "existence": {
+            "mean": 1.0,
+            "low_95": 1.0,
+            "high_95": 1.0,
+            "iterations": 34,
+            "clusters": 4
+          }
+        }
+      }
+    }
+  },
+  "interpretation": {
+    "displacement": "Upper-bound CSI after moving associated forecast objects to observed centroids.",
+    "intensity": "Upper-bound CSI after matching associated-object intensity mass.",
+    "birth_existence": "Upper-bound CSI after inserting missed observed birth objects only.",
+    "existence": "Upper-bound CSI after deleting unmatched forecasts and inserting all missed observations.",
+    "warning": "Oracle gains diagnose error sources; they are not achievable forecast skill."
+  }
+}

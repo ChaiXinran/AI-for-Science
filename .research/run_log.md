@@ -382,3 +382,21 @@
 - Eight focused tests and a 4-train/2-validation real-cache end-to-end smoke
   passed. The smoke emitted matched checkpoints, independent calibration,
   stratified metrics, and paired bootstrap comparisons.
+
+## 2026-07-23 - Server fair dynamic-residual verdict
+
+- Completed the locked 2,048-train/512-validation comparison. Static and
+  dynamic probes each had 13,378 parameters and shared identical static
+  climatology, radar cache, initialization, fit/calibration days, and training
+  budget.
+- Dynamic minus separately trained static-climatology CSI was -0.01771,
+  -0.01688, +0.00042, and +0.00089 across 0--1 h/10, 0--1 h/20, 1--2 h/10,
+  and 1--2 h/20. AP deltas were -0.02056, -0.01518, +0.01237, and +0.00618.
+- The 0--1 h/10 CSI day-cluster interval was entirely negative
+  [-0.02718, -0.00549]. Both later-horizon CSI deltas were below the locked
+  +0.003 minimum and their intervals crossed zero.
+- Aligned dynamic PWV was significantly worse than cross-event PWV at
+  0--1 h/10 (CSI delta -0.00424; interval [-0.00737, -0.00076]). It did not
+  consistently beat spatially shifted anomalies or reversed tendencies.
+- Final gate: 0/4 tasks passed; safety failed. Dynamic PWV architecture search
+  on the current interpolated product is closed.
