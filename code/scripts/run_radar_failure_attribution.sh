@@ -22,7 +22,8 @@ python -u code/test/radar.py \
   --split_manifest "${SPLIT_MANIFEST}" \
   --require_contiguous \
   --input_length 9 \
-  --total_length 29 \
+  --total_length 39 \
+  --evaluation_lead_frames 20 \
   --img_height 96 \
   --img_width 96 \
   --model_name NowcastNet \

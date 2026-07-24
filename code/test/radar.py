@@ -40,6 +40,12 @@ def build_parser():
     parser.add_argument("--split", choices=["train", "val", "test", "all"], default="test")
     parser.add_argument("--input_length", type=int, default=9)
     parser.add_argument("--total_length", type=int, default=29)
+    parser.add_argument(
+        "--evaluation_lead_frames",
+        type=int,
+        default=0,
+        help="Evaluate only the first N forecast frames; 0 evaluates every model output.",
+    )
     parser.add_argument("--img_height", type=int, default=96)
     parser.add_argument("--img_width", type=int, default=96)
     parser.add_argument("--img_ch", type=int, default=2)
@@ -1367,6 +1373,16 @@ def main():
             pred = model(frames)[..., 0]
             last_input = frames[:, args.input_length - 1, :, :, 0]
             persistence = last_input.unsqueeze(1).repeat(1, args.gen_oc, 1, 1)
+            if args.evaluation_lead_frames:
+                if args.evaluation_lead_frames < 1 or args.evaluation_lead_frames > pred.shape[1]:
+                    raise ValueError(
+                        "evaluation_lead_frames={} is outside model forecast length 1..{}".format(
+                            args.evaluation_lead_frames, pred.shape[1]
+                        )
+                    )
+                pred = pred[:, : args.evaluation_lead_frames]
+                target = target[:, : args.evaluation_lead_frames]
+                persistence = persistence[:, : args.evaluation_lead_frames]
 
             update_scalar_totals(model_totals, pred, target)
             update_scalar_totals(persistence_totals, persistence, target)

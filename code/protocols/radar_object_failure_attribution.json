@@ -3,6 +3,7 @@
   "role": "mechanism_diagnostic_before_model_development",
   "forecast_horizon": "0-2h",
   "input_frames": 9,
+  "checkpoint_forecast_frames": 30,
   "forecast_frames": 20,
   "frame_minutes": 6,
   "target_units": "mm/h",
